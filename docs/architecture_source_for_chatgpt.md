@@ -57,7 +57,7 @@ temperature_forecast/
   models/
     .gitkeep
     scaler_params.json
-    temperature_lstm.keras          # tạo sau train
+    temp_lstm.keras                 # tạo sau train
   outputs/
     figures/
       .gitkeep
@@ -348,9 +348,9 @@ Luồng xử lý:
    - `EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True)`
    - `ModelCheckpoint(MODEL_PATH, save_best_only=True)`
 7. Lưu:
-   - `models/temperature_lstm.keras`
-   - `outputs/logs/history.csv`
-   - `outputs/figures/training_loss_mae.png`
+   - `models/temp_lstm.keras`
+   - `reports/02_training/lstm_history.csv`
+   - `reports/02_training/lstm_loss_curve.png`
 
 Điểm phức tạp:
 
@@ -366,7 +366,7 @@ Luồng xử lý:
 
 Luồng xử lý:
 
-1. Kiểm tra model `models/temperature_lstm.keras`.
+1. Kiểm tra model `models/temp_lstm.keras`.
 2. Đọc test series.
 3. Tạo window test.
 4. `model.predict(X_test)` trả về nhiệt độ scaled.
@@ -428,7 +428,7 @@ Luồng xử lý:
 | Hàm | Output |
 |---|---|
 | `plot_temperature_series()` | `outputs/figures/temperature_series.png` |
-| `plot_training_history()` | `outputs/figures/training_loss_mae.png` |
+| `plot_training_history()` | `reports/02_training/lstm_loss_curve.png` |
 | `plot_actual_vs_predicted()` | `outputs/figures/actual_vs_predicted.png` |
 | `plot_residuals()` | `outputs/figures/residual_plot.png` |
 
@@ -499,8 +499,8 @@ Test hiện tại không train model thật, mục tiêu là kiểm tra nhanh:
 | Test CSV | `data/processed/test_series.csv` | Preprocess | Evaluate |
 | Split info | `data/processed/split_info.json` | Preprocess | Kiểm tra/báo cáo |
 | Scaler params | `models/scaler_params.json` | Preprocess | Evaluate/Predict |
-| Model | `models/temperature_lstm.keras` | Train | Evaluate/Predict |
-| History | `outputs/logs/history.csv` | Train | Plot/report |
+| Model | `models/temp_lstm.keras` | Train | Evaluate/Predict |
+| History | `reports/02_training/lstm_history.csv` | Train | Plot/report |
 | Metrics | `outputs/metrics/regression_metrics.csv` | Evaluate | Report |
 | Predictions | `outputs/metrics/predictions_test.csv` | Evaluate | Report/plot |
 | Next-day result | `outputs/metrics/next_day_prediction.txt` | Predict | Report |
@@ -522,8 +522,8 @@ flowchart TD
     MAIN --> TR[src/train_lstm.py]
     TR --> WIN[src/windowing.py]
     TR --> MOD[src/model_lstm.py]
-    TR --> MODEL[models/temperature_lstm.keras]
-    TR --> HIST[outputs/logs/history.csv]
+    TR --> MODEL[models/temp_lstm.keras]
+    TR --> HIST[reports/02_training/lstm_history.csv]
     MAIN --> EV[src/evaluate_lstm.py]
     EV --> MODEL
     EV --> SCALER

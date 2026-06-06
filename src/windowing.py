@@ -38,7 +38,19 @@ def create_sequences(
         X.append(series[start:end])
         y.append(series[target_index])
 
-    return np.asarray(X, dtype=np.float32)[..., np.newaxis], np.asarray(y, dtype=np.float32).reshape(-1, 1)
+    return reshape_for_lstm(np.asarray(X, dtype=np.float32)), np.asarray(y, dtype=np.float32)
+
+
+def reshape_for_lstm(X: np.ndarray) -> np.ndarray:
+    """Return LSTM input with shape (samples, timesteps, features)."""
+    arr = np.asarray(X, dtype=np.float32)
+    if arr.ndim == 1:
+        return arr.reshape(1, arr.shape[0], 1)
+    if arr.ndim == 2:
+        return arr[..., np.newaxis]
+    if arr.ndim == 3:
+        return arr
+    raise ValueError("X must be a 1D window, 2D window matrix, or 3D LSTM tensor.")
 
 
 def load_series_values(csv_path: str, temp_col: str = SCALED_TEMP_COL) -> np.ndarray:
@@ -65,8 +77,8 @@ def main_test_windowing() -> None:
     sample = np.arange(20, dtype=np.float32)
     X, y = create_sequences(sample, window_size=7)
     assert X.ndim == 3
-    assert X.shape[1] == 7
-    assert y.shape[0] == X.shape[0]
+    assert X.shape[1:] == (7, 1)
+    assert y.shape == (X.shape[0],)
     print("[OK] windowing", "X shape:", X.shape, "y shape:", y.shape)
 
 

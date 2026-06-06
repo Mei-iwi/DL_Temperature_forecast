@@ -59,9 +59,9 @@ def predict_next_day() -> float:
     next_date = calculate_next_date(clean_df[DATE_COL].iloc[-1])
 
     NEXT_DAY_PREDICTION_PATH.parent.mkdir(parents=True, exist_ok=True)
-    message = f"Ngày dự đoán: {next_date.date().isoformat()}\nNhiệt độ dự đoán: {pred_temp:.4f}\n"
+    message = f"Next prediction date: {next_date.date().isoformat()}\nPredicted temperature: {pred_temp:.4f}\n"
     NEXT_DAY_PREDICTION_PATH.write_text(message, encoding="utf-8")
-    print(message.strip())
+    print(f"[OK] predicted next day: {next_date.date().isoformat()} -> {pred_temp:.4f}")
     return pred_temp
 
 

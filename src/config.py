@@ -22,6 +22,8 @@ METRIC_DIR = OUTPUT_DIR / "metrics"
 LOG_DIR = OUTPUT_DIR / "logs"
 REPORT_DIR = PROJECT_ROOT / "reports"
 REPORT_DATA_PROFILE_DIR = REPORT_DIR / "01_data_profile"
+REPORT_TRAINING_DIR = REPORT_DIR / "02_training"
+REPORT_EVALUATION_DIR = REPORT_DIR / "03_evaluation"
 
 # Đường dẫn dữ liệu gốc và dữ liệu đã xử lý.
 RAW_CSV_PATH = RAW_DIR / "temperature.csv"
@@ -40,11 +42,15 @@ FULL_SCALED_PATH = PROCESSED_DIR / "temperature_scaled.csv"
 SPLIT_INFO_PATH = PROCESSED_DIR / "split_info.json"
 
 # Đường dẫn model, scaler và các output cuối.
-MODEL_PATH = MODEL_DIR / "temperature_lstm.keras"
+MODEL_PATH = MODEL_DIR / "temp_lstm.keras"
 SCALER_PATH = MODEL_DIR / "scaler_params.json"
 SCALER_PARAMS_PATH = SCALER_PATH
-HISTORY_CSV_PATH = LOG_DIR / "history.csv"
-TRAINING_FIGURE_PATH = FIGURE_DIR / "training_loss_mae.png"
+WINDOW_CONFIG_PATH = REPORT_TRAINING_DIR / "window_config.json"
+LSTM_MODEL_SUMMARY_PATH = REPORT_TRAINING_DIR / "lstm_model_summary.txt"
+LSTM_HISTORY_CSV_PATH = REPORT_TRAINING_DIR / "lstm_history.csv"
+LSTM_LOSS_CURVE_PATH = REPORT_TRAINING_DIR / "lstm_loss_curve.png"
+HISTORY_CSV_PATH = LSTM_HISTORY_CSV_PATH
+TRAINING_FIGURE_PATH = LSTM_LOSS_CURVE_PATH
 TEMPERATURE_SERIES_FIGURE_PATH = FIGURE_DIR / "temperature_series.png"
 ACTUAL_VS_PRED_PATH = FIGURE_DIR / "actual_vs_predicted.png"
 RESIDUAL_PLOT_PATH = FIGURE_DIR / "residual_plot.png"
@@ -65,7 +71,7 @@ HORIZON = 1
 TRAIN_RATIO = 0.7
 VAL_RATIO = 0.15
 BATCH_SIZE = 32
-EPOCHS = 10
+EPOCHS = 50
 LSTM_UNITS = 32
 SEED = 42
 LEARNING_RATE = 0.001
