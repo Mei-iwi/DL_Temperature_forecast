@@ -35,6 +35,8 @@ temperature_forecast/
   requirements.txt
   main.py
   app_temperature_cli.py
+  docs/
+    architecture_source_for_chatgpt.md
   data/
     raw/
       temperature.csv
@@ -83,6 +85,14 @@ Vai trò chính:
 | `src/predict_next_day.py` | Dự đoán nhiệt độ ngày tiếp theo từ cửa sổ mới nhất. |
 | `src/visualize_results.py` | Vẽ biểu đồ chuỗi nhiệt độ, lịch sử train và kết quả dự đoán. |
 | `tests/test_temperature_end_to_end.py` | Kiểm thử nhẹ, không train model thật. |
+
+Tài liệu kiến trúc chi tiết nằm tại:
+
+```text
+docs/architecture_source_for_chatgpt.md
+```
+
+File này mô tả các lớp pipeline, luồng dữ liệu, kiến trúc LSTM, artifact đầu ra và Mermaid diagram để có thể đưa sang ChatGPT Web tạo phần giải thích kiến trúc hoặc hình minh họa chi tiết.
 
 ## 4. Chuẩn bị dữ liệu
 

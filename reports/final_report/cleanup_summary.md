@@ -10,6 +10,18 @@
 - `src/visualize_results.py` đã có các hàm lưu biểu đồ bằng Matplotlib.
 - Các ghi chú cũ về "file giữ chỗ" chỉ còn giá trị lịch sử của lượt dọn dẹp trước.
 
+## Cập nhật dọn dẹp tài liệu mới nhất
+
+- Đã cập nhật `docs/architecture_source_for_chatgpt.md` thành hồ sơ kiến trúc tiếng Việt chi tiết theo source code hiện tại.
+- Đã gộp nội dung mô tả các thư mục nhỏ vào `README.md`.
+- Đã xóa các file Markdown nhỏ không còn cần thiết:
+  - `data/raw/README_data.md`
+  - `data/processed/README_processed.md`
+  - `models/README_models.md`
+  - `tests/README_tests.md`
+- Không xóa `.venv/` vì đây là môi trường ảo cục bộ của người dùng và đã được ignore trong `.gitignore`.
+- Giữ `.gitkeep` trong các thư mục dữ liệu/output để Git vẫn lưu cấu trúc rỗng cần thiết.
+
 ## File đã giữ lại và lý do
 
 - `README.md`: tài liệu chính hướng dẫn chạy project, cài thư viện, mô tả dữ liệu và checklist nghiệm thu.
