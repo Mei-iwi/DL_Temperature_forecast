@@ -1,19 +1,19 @@
-# Raw Temperature Data
+# Dữ liệu nhiệt độ gốc
 
-Place the original temperature CSV in this folder as:
+Đặt file CSV nhiệt độ ban đầu trong thư mục này với đường dẫn:
 
 ```text
 data/raw/temperature.csv
 ```
 
-Supported input formats:
+Các định dạng đầu vào được hỗ trợ:
 
-- NASA POWER daily CSV with metadata header and columns `YEAR,DOY,T2M`.
-- NASA POWER daily CSV with columns `YEAR,MO,DY,T2M`.
-- Plain CSV with columns `date,temperature`.
+- CSV ngày của NASA POWER có phần metadata ở đầu file và các cột `YEAR,DOY,T2M`.
+- CSV ngày của NASA POWER có các cột `YEAR,MO,DY,T2M`.
+- CSV thông thường có các cột `date,temperature`.
 
-Rules:
+Quy tắc:
 
-- Keep the raw file unchanged.
-- NASA missing value marker `-999` is treated as missing data.
-- The raw CSV is ignored by Git; only this README and `.gitkeep` are tracked.
+- Giữ nguyên file dữ liệu gốc, không chỉnh sửa trực tiếp.
+- Giá trị thiếu của NASA được ký hiệu bằng `-999` và sẽ được xử lý như dữ liệu thiếu.
+- File CSV gốc không được đưa lên Git; chỉ README này và `.gitkeep` được theo dõi.
