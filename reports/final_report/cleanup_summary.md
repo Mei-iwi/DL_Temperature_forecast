@@ -1,5 +1,27 @@
 # Tóm tắt dọn dẹp cấu trúc project
 
+## Cập nhật sau khi hoàn thiện pipeline LSTM
+
+- `src/windowing.py` đã được thay bằng logic tạo cửa sổ dữ liệu LSTM thật.
+- `src/model_lstm.py` đã được thay bằng hàm build mô hình LSTM TensorFlow/Keras.
+- `src/train_lstm.py` đã có pipeline huấn luyện, lưu model, history và biểu đồ.
+- `src/evaluate_lstm.py` đã có pipeline đánh giá, đảo chuẩn hóa và tính MAE/MSE/RMSE.
+- `src/predict_next_day.py` đã có pipeline dự đoán nhiệt độ ngày tiếp theo.
+- `src/visualize_results.py` đã có các hàm lưu biểu đồ bằng Matplotlib.
+- Các ghi chú cũ về "file giữ chỗ" chỉ còn giá trị lịch sử của lượt dọn dẹp trước.
+
+## Cập nhật dọn dẹp tài liệu mới nhất
+
+- Đã cập nhật `docs/architecture_source_for_chatgpt.md` thành hồ sơ kiến trúc tiếng Việt chi tiết theo source code hiện tại.
+- Đã gộp nội dung mô tả các thư mục nhỏ vào `README.md`.
+- Đã xóa các file Markdown nhỏ không còn cần thiết:
+  - `data/raw/README_data.md`
+  - `data/processed/README_processed.md`
+  - `models/README_models.md`
+  - `tests/README_tests.md`
+- Không xóa `.venv/` vì đây là môi trường ảo cục bộ của người dùng và đã được ignore trong `.gitignore`.
+- Giữ `.gitkeep` trong các thư mục dữ liệu/output để Git vẫn lưu cấu trúc rỗng cần thiết.
+
 ## File đã giữ lại và lý do
 
 - `README.md`: tài liệu chính hướng dẫn chạy project, cài thư viện, mô tả dữ liệu và checklist nghiệm thu.

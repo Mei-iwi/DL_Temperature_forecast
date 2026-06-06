@@ -10,9 +10,7 @@ models/*.h5
 models/scaler_params.json
 data/raw/*
 !data/raw/.gitkeep
-!data/raw/README_data.md
 data/processed/*
 !data/processed/.gitkeep
-!data/processed/README_processed.md
 reports/01_data_profile/*.json
 reports/02_training/window_config.json

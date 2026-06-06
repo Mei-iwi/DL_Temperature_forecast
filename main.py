@@ -23,6 +23,10 @@ REQUIRED_DIRS = (
     "reports/02_training",
     "reports/03_evaluation",
     "reports/final_report",
+    "outputs",
+    "outputs/figures",
+    "outputs/metrics",
+    "outputs/logs",
     "tests",
 )
 
@@ -125,15 +129,19 @@ def ensure_processed_data_exists() -> None:
     Hàm đảm bảo output từ bước `preprocess` đã có đủ.
     Lưu ý: dữ liệu đã xử lý phải được chia theo thời gian, không shuffle.
     """
-    required = (
-        config.CLEAN_DATA_PATH,
-        config.TRAIN_SCALED_PATH,
-        config.VAL_SCALED_PATH,
-        config.TEST_SCALED_PATH,
-        config.SPLIT_INFO_PATH,
-        config.SCALER_PARAMS_PATH,
+    required_groups = (
+        (config.CLEAN_DATA_PATH,),
+        (config.TRAIN_CSV_PATH, config.TRAIN_SCALED_PATH),
+        (config.VAL_CSV_PATH, config.VAL_SCALED_PATH),
+        (config.TEST_CSV_PATH, config.TEST_SCALED_PATH),
+        (config.SPLIT_INFO_PATH,),
+        (config.SCALER_PARAMS_PATH,),
     )
-    missing = [rel_path(path) for path in required if not Path(path).exists()]
+    missing = [
+        " hoặc ".join(rel_path(path) for path in group)
+        for group in required_groups
+        if not any(Path(path).exists() for path in group)
+    ]
     if missing:
         raise CliError(
             "Missing processed data files: "
@@ -165,7 +173,7 @@ def check_placeholder_module(module_name: str) -> str:
     if not module_path.exists():
         return "missing"
     text = module_path.read_text(encoding="utf-8")
-    if "placeholder" in text.lower() or "main_test_" in text:
+    if "placeholder" in text.lower():
         return "placeholder"
     return "present"
 
@@ -244,7 +252,7 @@ def train() -> int:
     ensure_processed_data_exists()
     function = find_callable(
         "src.train_lstm",
-        ("train_lstm_pipeline", "train_temperature_lstm", "train_model", "train"),
+        ("train_lstm_pipeline", "train_lstm", "train_temperature_lstm", "train_model", "train"),
     )
     function()
     print("[OK] train completed")
@@ -261,7 +269,7 @@ def evaluate() -> int:
     ensure_model_exists()
     function = find_callable(
         "src.evaluate_lstm",
-        ("evaluate_lstm_pipeline", "evaluate_temperature_lstm", "evaluate_model", "evaluate"),
+        ("evaluate_lstm_pipeline", "evaluate_lstm", "evaluate_temperature_lstm", "evaluate_model", "evaluate"),
     )
     function()
     print("[OK] evaluate completed")

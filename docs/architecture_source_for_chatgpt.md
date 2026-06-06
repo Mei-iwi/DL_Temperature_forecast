@@ -1,759 +1,621 @@
-# Architecture Source Dossier for ChatGPT Web
+# Hồ sơ kiến trúc hệ thống `temperature_forecast`
 
-## 1. Project Overview
+Tài liệu này được tạo để đưa sang ChatGPT Web phân tích sâu kiến trúc hệ thống và dựng mô tả/ảnh kiến trúc pipeline. Nội dung bên dưới bám theo source code hiện tại của repository, không thêm kết quả giả và không suy diễn metric ngoài code.
 
-**Project name:** `temperature_forecast`
+## 1. Tổng quan hệ thống
 
-**Course context:** Deep Learning practice project.
+| Mục | Mô tả |
+|---|---|
+| Tên project | `temperature_forecast` |
+| Bài toán | Dự đoán nhiệt độ ngày tiếp theo bằng LSTM |
+| Kiểu dữ liệu | Chuỗi thời gian nhiệt độ dạng CSV |
+| Input chính | `data/raw/temperature.csv` |
+| Output chính | Nhiệt độ dự đoán cho ngày kế tiếp |
+| Mô hình | LSTM hồi quy một giá trị với TensorFlow/Keras |
+| Giao diện chạy | CLI qua `main.py` và `app_temperature_cli.py` |
+| Nguyên tắc dữ liệu | Không shuffle chuỗi thời gian, scaler chỉ fit trên train |
 
-**Topic:** Predict next-day temperature using LSTM.
+Hệ thống được tổ chức theo pipeline:
 
-**Main goal:** Build a Python CLI-based workflow that reads a temperature time-series CSV, preprocesses it, prepares train/validation/test data in chronological order, and is intended to train/evaluate/predict with an LSTM model.
+```text
+Raw CSV -> Chuẩn hóa schema -> Làm sạch chuỗi thời gian
+        -> Chia train/validation/test theo thời gian
+        -> Chuẩn hóa bằng mean/std của train
+        -> Tạo window LSTM
+        -> Huấn luyện LSTM
+        -> Đánh giá test set
+        -> Dự đoán ngày tiếp theo
+        -> Lưu model, metric, hình ảnh, log
+```
 
-**Input data:** Temperature CSV located at `data/raw/temperature.csv`.
-
-The existing data-reading code supports:
-
-- Plain CSV with `date` and `temperature` columns.
-- NASA POWER daily CSV with `YEAR,MO,DY,T2M`.
-- NASA POWER daily CSV with `YEAR,DOY,T2M`.
-- NASA POWER metadata headers before the table.
-
-**Output prediction:** One next-day temperature value. The prediction flow is planned but not fully implemented in the current source because `src/predict_next_day.py` is still a placeholder.
-
-**Main machine learning model:** LSTM with TensorFlow/Keras is the intended model. The current `src/model_lstm.py` file is still a placeholder and does not define a real architecture yet.
-
-**Main technologies/libraries:**
-
-- Python standard library: `argparse`, `importlib`, `json`, `math`, `pathlib`, `subprocess`, `sys`
-- Pandas
-- NumPy is listed in `requirements.txt`, but current implemented preprocessing code mainly uses Pandas.
-- Matplotlib, scikit-learn, TensorFlow are listed in `requirements.txt` for the expected full ML pipeline, but current train/evaluate/model files are placeholders.
-
-**Problem solved:** The implemented part solves the data preparation and project integration problem for next-day temperature forecasting: read raw temperature data, clean the time series, split chronologically, standardize using train-only statistics, save processed artifacts, and expose a CLI with readable checks. The actual LSTM training/evaluation/prediction layers are planned but incomplete.
-
-## 2. Current Repository Structure
-
-Current file tree, excluding `.git/` and generated cache files:
+## 2. Cấu trúc source code hiện tại
 
 ```text
 temperature_forecast/
-  .gitignore
   README.md
-  app_temperature_cli.py
-  main.py
   requirements.txt
+  main.py
+  app_temperature_cli.py
+  .gitignore
   data/
     raw/
       .gitkeep
-      README_data.md
       temperature.csv
     processed/
       .gitkeep
-      README_processed.md
-      split_info.json
       temperature_clean.csv
+      train_series.csv              # tạo sau preprocess mới
+      val_series.csv                # tạo sau preprocess mới
+      test_series.csv               # tạo sau preprocess mới
+      temperature_train_scaled.csv  # artifact cũ vẫn tương thích
+      temperature_val_scaled.csv    # artifact cũ vẫn tương thích
+      temperature_test_scaled.csv   # artifact cũ vẫn tương thích
       temperature_scaled.csv
-      temperature_test_scaled.csv
-      temperature_train_scaled.csv
-      temperature_val_scaled.csv
+      split_info.json
   docs/
     architecture_source_for_chatgpt.md
   models/
     .gitkeep
-    README_models.md
     scaler_params.json
+    temperature_lstm.keras          # tạo sau train
+  outputs/
+    figures/
+      .gitkeep
+      temperature_series.png
+      training_loss_mae.png
+      actual_vs_predicted.png
+      residual_plot.png
+    logs/
+      .gitkeep
+      history.csv
+    metrics/
+      .gitkeep
+      regression_metrics.csv
+      predictions_test.csv
+      next_day_prediction.txt
   reports/
     01_data_profile/
-      .gitkeep
-      clean_data_profile.json
-      raw_data_profile.json
     02_training/
-      .gitkeep
     03_evaluation/
-      .gitkeep
     final_report/
-      .gitkeep
       cleanup_summary.md
       submission_checklist.md
       test_log.txt
   src/
     __init__.py
-    check_processed_timeseries.py
     config.py
     data_utils.py
-    evaluate_lstm.py
-    model_lstm.py
-    predict_next_day.py
     preprocess_timeseries.py
-    train_lstm.py
-    visualize_results.py
     windowing.py
+    model_lstm.py
+    train_lstm.py
+    evaluate_lstm.py
+    predict_next_day.py
+    visualize_results.py
+    check_processed_timeseries.py
   tests/
     .gitkeep
-    README_tests.md
     sample_temperature.csv
     test_temperature_end_to_end.py
 ```
 
-### Important Folders and Files
+Ghi chú dọn dẹp:
 
-| Path | Role |
+- Các README nhỏ trong `data/raw/`, `data/processed/`, `models/`, `tests/` đã được gộp vào `README.md` và xóa để cấu trúc gọn hơn.
+- `.venv/` là môi trường ảo cục bộ, đã được ignore trong `.gitignore`; không đưa vào kiến trúc nộp bài.
+- `.gitkeep` được giữ để Git lưu các thư mục output khi chưa có file kết quả thật.
+
+## 3. Kiến trúc theo lớp
+
+### Layer 1 - CLI/Application Entry
+
+**File:** `main.py`, `app_temperature_cli.py`
+
+**Trách nhiệm:**
+
+- Nhận lệnh từ người dùng.
+- Kiểm tra file/thư mục bắt buộc.
+- Gọi pipeline tương ứng.
+- In lỗi rõ ràng khi thiếu dữ liệu, thiếu model hoặc thiếu thư viện.
+
+**Lệnh hỗ trợ:**
+
+```bash
+python main.py self_test
+python main.py preprocess
+python main.py train
+python main.py evaluate
+python main.py predict_next_day
+python main.py run_all
+```
+
+`run_all` chạy:
+
+```text
+preprocess -> train -> evaluate -> predict_next_day
+```
+
+**Hàm quan trọng:**
+
+| Hàm | Vai trò |
 |---|---|
-| `main.py` | Main CLI entry point. Supports `self_test`, `preprocess`, `train`, `evaluate`, `predict_next_day`, `run_all`. Uses safe imports and readable errors. |
-| `app_temperature_cli.py` | Thin student-friendly wrapper around `main.py`. Prints help if no command is provided. |
-| `src/config.py` | Central configuration: project paths, raw/processed data paths, model/scaler paths, report paths, column names, split ratios, window size, training hyperparameters. |
-| `src/data_utils.py` | Real implemented data input module. Reads raw CSV, detects NASA metadata, standardizes date/temperature columns, validates data, builds data profiles. |
-| `src/preprocess_timeseries.py` | Real implemented preprocessing module. Cleans daily time series, fills missing days, splits by time, fits train-only scaler, transforms splits, saves artifacts. |
-| `src/check_processed_timeseries.py` | Real implemented validation helper for processed data artifacts. Checks required files, columns, chronological data, split labels, and scaler parameters. |
-| `src/windowing.py` | Placeholder only. Currently contains `main_test_windowing()` and does not create LSTM windows. |
-| `src/model_lstm.py` | Placeholder only. Currently contains `main_test_temperature_lstm_build()` and does not define a TensorFlow/Keras model. |
-| `src/train_lstm.py` | Placeholder only. Currently contains `main_test_train_lstm()` and does not train or save a model. |
-| `src/evaluate_lstm.py` | Placeholder only. Currently contains `main_test_temperature_evaluate_predict()` and does not compute MAE/MSE/RMSE. |
-| `src/predict_next_day.py` | Placeholder only. Currently contains `main_test_predict_next_day()` and does not predict next-day temperature. |
-| `src/visualize_results.py` | Placeholder only. Currently contains `main_test_visualize_results()` and does not create figures. |
-| `data/raw/` | Holds raw input CSV. `temperature.csv` is present. |
-| `data/processed/` | Holds preprocessing outputs created by `preprocess_temperature_pipeline()`. Several CSV/JSON artifacts are present. |
-| `models/` | Holds model/scaler artifacts. `scaler_params.json` is present; `temp_lstm.keras` is expected by config but missing. |
-| `outputs/figures/`, `outputs/metrics/`, `outputs/logs/` | Not present in current repository. Current code writes to `reports/` and `data/processed/`, not `outputs/`. |
-| `reports/` | Holds data profiles and final submission documents. Training/evaluation report folders exist but only contain `.gitkeep`. |
-| `tests/` | Holds a lightweight acceptance test script and sample CSV. |
+| `build_parser()` | Định nghĩa CLI bằng argparse |
+| `main()` | Điểm vào chính, bắt lỗi và trả mã trạng thái |
+| `self_test()` | Kiểm tra cấu trúc project và import module |
+| `preprocess()` | Gọi tiền xử lý |
+| `train()` | Gọi huấn luyện |
+| `evaluate()` | Gọi đánh giá |
+| `predict_next_day()` | Gọi dự đoán ngày tiếp theo |
+| `run_all()` | Chạy toàn pipeline |
 
-## 3. System Architecture by Layers
+### Layer 2 - Configuration
 
-### Layer 1: CLI / Application Entry Layer
+**File:** `src/config.py`
 
-**Responsibility:** Provide runnable commands, route commands to the correct module, check missing data/model conditions, and show readable errors.
+**Trách nhiệm:** gom toàn bộ đường dẫn và tham số để các module không hard-code.
 
-**Related files:**
+Nhóm cấu hình chính:
 
-- `main.py`
-- `app_temperature_cli.py`
+| Nhóm | Hằng số tiêu biểu | Ý nghĩa |
+|---|---|---|
+| Root/data | `PROJECT_ROOT`, `DATA_DIR`, `RAW_DIR`, `PROCESSED_DIR` | Thư mục project và dữ liệu |
+| Raw/processed | `RAW_CSV_PATH`, `CLEAN_CSV_PATH`, `TRAIN_CSV_PATH`, `VAL_CSV_PATH`, `TEST_CSV_PATH` | File dữ liệu đầu vào/đầu ra |
+| Model/scaler | `MODEL_PATH`, `SCALER_PATH`, `SCALER_PARAMS_PATH` | Model LSTM và tham số chuẩn hóa |
+| Output | `FIGURE_DIR`, `METRIC_DIR`, `LOG_DIR` | Nơi lưu hình, metric, history |
+| Cột dữ liệu | `DATE_COL`, `TEMP_COL`, `SCALED_TEMP_COL` | Tên cột chuẩn |
+| LSTM | `WINDOW_SIZE`, `HORIZON`, `LSTM_UNITS`, `BATCH_SIZE`, `EPOCHS`, `LEARNING_RATE` | Tham số mô hình và huấn luyện |
 
-**Important functions:**
+### Layer 3 - Data Input
 
-- `main.build_parser()`
-- `main.main()`
-- `main.self_test()`
-- `main.preprocess()`
-- `main.train()`
-- `main.evaluate()`
-- `main.predict_next_day()`
-- `main.run_all()`
-- `app_temperature_cli.app_main()`
+**File:** `src/data_utils.py`
 
-**Input:** CLI command such as `python main.py preprocess`.
+**Trách nhiệm:** đọc CSV thô và chuẩn hóa schema về `date`, `temperature`.
 
-**Output:** Console messages and, for commands with real implementation, saved data artifacts.
+**Hỗ trợ input:**
 
-**Connection to next layer:** CLI imports `src.config` and dynamically imports pipeline modules such as `src.preprocess_timeseries`.
+- CSV thường: `date`, `temperature`
+- NASA POWER: `YEAR`, `MO`, `DY`, `T2M`
+- NASA POWER: `YEAR`, `DOY`, `T2M`
+- File NASA có metadata header
 
-### Layer 2: Configuration Layer
+**Hàm quan trọng:**
 
-**Responsibility:** Define shared paths, column names, split ratios, window size, and training parameters.
+| Hàm | Input | Output | Ghi chú |
+|---|---|---|---|
+| `_detect_skiprows_for_nasa_csv()` | Path CSV | Số dòng bỏ qua | Tìm `-END HEADER-`, `YEAR,`, `DATE,` |
+| `read_temperature_csv()` | `data/raw/temperature.csv` | DataFrame thô | Dùng Pandas |
+| `standardize_temperature_columns()` | DataFrame thô | DataFrame `date`, `temperature` | Chuẩn hóa nhiều dạng schema |
+| `validate_temperature_frame()` | DataFrame chuẩn | None hoặc lỗi | Kiểm tra cột, rỗng, ngày/nhiệt độ hợp lệ |
+| `load_temperature_data()` | Path CSV | DataFrame chuẩn | Hàm chính cho preprocessing |
+| `profile_temperature_data()` | DataFrame | Dict profile | Dùng cho báo cáo dữ liệu |
 
-**Related file:** `src/config.py`
+### Layer 4 - Preprocessing
 
-**Important values:**
+**File:** `src/preprocess_timeseries.py`
 
-- `DATA_RAW_PATH = data/raw/temperature.csv`
-- `CLEAN_DATA_PATH = data/processed/temperature_clean.csv`
-- `TRAIN_SCALED_PATH = data/processed/temperature_train_scaled.csv`
-- `VAL_SCALED_PATH = data/processed/temperature_val_scaled.csv`
-- `TEST_SCALED_PATH = data/processed/temperature_test_scaled.csv`
-- `FULL_SCALED_PATH = data/processed/temperature_scaled.csv`
-- `MODEL_PATH = models/temp_lstm.keras`
-- `SCALER_PARAMS_PATH = models/scaler_params.json`
-- `DATE_COL = "date"`
-- `TEMP_COL = "temperature"`
-- `WINDOW_SIZE = 7`
-- `HORIZON = 1`
-- `TRAIN_RATIO = 0.7`
-- `VAL_RATIO = 0.15`
-- `BATCH_SIZE = 32`
-- `EPOCHS = 10`
-- `LEARNING_RATE = 0.001`
+**Trách nhiệm:**
 
-**Input:** None at runtime except Python imports.
+- Ép kiểu ngày/nhiệt độ.
+- Đổi `-999` thành missing.
+- Bỏ dòng không có ngày hợp lệ.
+- Gom trùng ngày bằng mean.
+- Sắp xếp theo thời gian.
+- Reindex theo ngày để chuỗi đều.
+- Nội suy missing bằng `interpolate`.
+- Chia train/validation/test theo thời gian.
 
-**Output:** Constants used by all pipeline layers.
+**Hàm chính:**
 
-**Connection to next layer:** Data input/preprocessing modules import these constants instead of hard-coding paths.
+| Hàm | Vai trò |
+|---|---|
+| `clean_temperature_timeseries()` | Làm sạch chuỗi nhiệt độ theo ngày |
+| `split_by_time()` | Chia train/validation/test không shuffle |
+| `build_split_info()` | Tạo metadata chia tập |
+| `preprocess_temperature_pipeline()` | Chạy toàn bộ tiền xử lý và lưu artifact |
 
-### Layer 3: Data Input Layer
+**Điểm phức tạp cần giải thích:**
 
-**Responsibility:** Read raw CSV and normalize schema into canonical date/temperature columns.
+- Dữ liệu chuỗi thời gian không được shuffle vì sẽ làm rò rỉ thông tin tương lai.
+- `split_by_time()` sort theo `DATE_COL` rồi cắt train trước, validation giữa, test cuối.
+- Nội suy được thực hiện trước split; nếu báo cáo yêu cầu chống leakage nghiêm ngặt, cần giải thích đây là bước làm sạch toàn chuỗi và có thể thay bằng phương pháp chỉ dùng quá khứ.
 
-**Related files:**
+### Layer 5 - Scaling/Transformation
 
-- `data/raw/temperature.csv`
-- `src/data_utils.py`
+**File:** `src/preprocess_timeseries.py`
 
-**Important functions:**
+**Trách nhiệm:** chuẩn hóa nhiệt độ để LSTM học ổn định hơn.
 
-- `_detect_skiprows_for_nasa_csv()`
-- `read_temperature_csv()`
-- `_find_column_case_insensitive()`
-- `standardize_temperature_columns()`
-- `validate_temperature_frame()`
-- `load_temperature_data()`
+Công thức:
 
-**Input:** Raw CSV. Supported columns include `date`, `temperature`, NASA `YEAR`, `MO`, `DY`, `DOY`, `T2M`, `T2M_MAX`, `T2M_MIN`.
+```text
+temperature_scaled = (temperature - mean_train) / std_train
+```
 
-**Output:** Pandas DataFrame with canonical `date` and `temperature` columns.
+Đảo chuẩn hóa:
 
-**Connection to next layer:** `preprocess_temperature_pipeline()` calls `load_temperature_data()`.
+```text
+temperature = temperature_scaled * std_train + mean_train
+```
 
-### Layer 4: Data Preprocessing Layer
+**Hàm chính:**
 
-**Responsibility:** Clean daily time series, normalize dates, sort by time, aggregate duplicate dates, fill missing days/values, and split chronologically.
+| Hàm | Vai trò |
+|---|---|
+| `fit_temperature_scaler()` | Tính mean/std chỉ trên train |
+| `transform_temperature()` | Chuẩn hóa một DataFrame |
+| `inverse_transform_temperature()` | Đưa giá trị scaled về nhiệt độ thật |
+| `scale_time_splits()` | Fit train, transform train/validation/test |
+| `save_json()` | Lưu `split_info.json`, `scaler_params.json` |
+| `load_scaler_params()` | Đọc scaler params |
 
-**Related file:** `src/preprocess_timeseries.py`
+**Chống rò rỉ dữ liệu:**
 
-**Important functions:**
+- Mean/std chỉ lấy từ train.
+- Validation/test không được fit lại scaler.
+- `scaler_params.json` dùng lại cho evaluate/predict.
 
-- `clean_temperature_timeseries()`
-- `split_by_time()`
-- `_date_range_info()`
-- `build_split_info()`
-- `preprocess_temperature_pipeline()`
+### Layer 6 - Windowing
 
-**Input:** DataFrame from `load_temperature_data()`.
+**File:** `src/windowing.py`
 
-**Output:**
+**Trách nhiệm:** biến chuỗi 1D thành bài toán supervised learning cho LSTM.
 
-- Clean DataFrame
-- `data/processed/temperature_clean.csv`
-- Train/validation/test DataFrames
-- `data/processed/split_info.json`
+**Hàm chính:** `create_sequences(values, window_size=WINDOW_SIZE, horizon=HORIZON)`
 
-**Connection to next layer:** The cleaned splits are passed to scaling functions in the same module.
+Input:
 
-### Layer 5: Scaling / Transformation Layer
+```text
+values = [t1, t2, t3, ..., tn]
+```
 
-**Responsibility:** Fit mean/std standardization parameters on train only, transform train/validation/test using train parameters, and save scaler metadata.
+Với `WINDOW_SIZE = 7`, `HORIZON = 1`:
 
-**Related file:** `src/preprocess_timeseries.py`
+```text
+X[0] = [t1, t2, t3, t4, t5, t6, t7]
+y[0] = t8
 
-**Important functions:**
+X[1] = [t2, t3, t4, t5, t6, t7, t8]
+y[1] = t9
+```
 
-- `fit_temperature_scaler()`
-- `transform_temperature()`
-- `inverse_transform_temperature()`
-- `scale_time_splits()`
-- `save_json()`
-- `load_scaler_params()`
+Shape:
 
-**Input:** Chronological train/validation/test splits.
+```text
+X: (samples, window_size, 1)
+y: (samples, 1)
+```
 
-**Output:**
+Điểm cần giải thích:
 
-- `temperature_train_scaled.csv`
-- `temperature_val_scaled.csv`
-- `temperature_test_scaled.csv`
-- `temperature_scaled.csv`
-- `models/scaler_params.json`
+- Chiều cuối cùng `1` là số feature: chỉ có nhiệt độ.
+- Window phải giữ nguyên thứ tự thời gian.
+- Target là ngày tiếp theo sau cửa sổ, không dùng dữ liệu tương lai trong input.
 
-**Data leakage prevention:** `fit_temperature_scaler()` uses only `train_df`. Validation/test are transformed using train mean/std.
+### Layer 7 - Model LSTM
 
-**Connection to next layer:** The scaled time series should feed the windowing layer. That layer is currently incomplete.
+**File:** `src/model_lstm.py`
 
-### Layer 6: Windowing Layer
+**Hàm chính:** `build_lstm_model(input_shape, units=LSTM_UNITS, learning_rate=LEARNING_RATE)`
 
-**Responsibility:** Intended to convert a univariate time series into supervised LSTM samples.
+Kiến trúc hiện tại:
 
-**Related file:** `src/windowing.py`
+```text
+Input(shape=(WINDOW_SIZE, 1))
+LSTM(units=LSTM_UNITS)
+Dropout(0.2)
+Dense(32, activation="relu")
+Dense(1)
+```
 
-**Current implementation:** Placeholder only.
+Compile:
 
-**Existing function:** `main_test_windowing()`
+```text
+optimizer = Adam(learning_rate=LEARNING_RATE)
+loss = "mse"
+metrics = ["mae"]
+```
 
-**Expected input:** Scaled temperature series, likely from `temperature_train_scaled.csv`, `temperature_val_scaled.csv`, `temperature_test_scaled.csv`.
+Ý nghĩa từng lớp:
 
-**Expected output:** LSTM windows:
+| Lớp | Vai trò |
+|---|---|
+| `Input(shape=(7, 1))` | Nhận 7 ngày gần nhất, mỗi ngày 1 giá trị nhiệt độ scaled |
+| `LSTM(32)` | Học quan hệ theo thời gian trong cửa sổ nhiệt độ |
+| `Dropout(0.2)` | Giảm overfitting bằng cách bỏ ngẫu nhiên một phần tín hiệu khi train |
+| `Dense(32, relu)` | Học tổ hợp phi tuyến sau đặc trưng LSTM |
+| `Dense(1)` | Xuất đúng một giá trị: nhiệt độ scaled của ngày tiếp theo |
 
-- `X` shape should be conceptually `(samples, WINDOW_SIZE, features)`.
-- `y` shape should be conceptually `(samples,)` or `(samples, 1)`.
-- With `WINDOW_SIZE = 7` and `HORIZON = 1`, the target should be the next-day value after each 7-day window.
+Tại sao dùng LSTM:
 
-**Important limitation:** No actual window creation function exists in current code.
+- LSTM có bộ nhớ trạng thái, phù hợp chuỗi thời gian.
+- Dữ liệu nhiệt độ có xu hướng phụ thuộc các ngày gần trước đó.
+- Cửa sổ 7 ngày giúp mô hình học nhịp ngắn hạn theo tuần.
 
-### Layer 7: Model Layer
+### Layer 8 - Training
 
-**Responsibility:** Intended to define the TensorFlow/Keras LSTM architecture.
+**File:** `src/train_lstm.py`
 
-**Related file:** `src/model_lstm.py`
+**Hàm chính:** `train_lstm()`, alias `train_lstm_pipeline()`
 
-**Current implementation:** Placeholder only.
+Luồng xử lý:
 
-**Existing function:** `main_test_temperature_lstm_build()`
+1. Kiểm tra `train_series.csv`/`val_series.csv`; nếu chưa có thì dùng artifact cũ `temperature_train_scaled.csv`/`temperature_val_scaled.csv`.
+2. Đọc `temperature_scaled`.
+3. Tạo `X_train`, `y_train`, `X_val`, `y_val`.
+4. Build model LSTM.
+5. Train bằng `model.fit`.
+6. Dùng callback:
+   - `EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True)`
+   - `ModelCheckpoint(MODEL_PATH, save_best_only=True)`
+7. Lưu:
+   - `models/temperature_lstm.keras`
+   - `outputs/logs/history.csv`
+   - `outputs/figures/training_loss_mae.png`
 
-**Expected input:** LSTM input shape such as `(WINDOW_SIZE, features)`.
+Điểm phức tạp:
 
-**Expected output:** Compiled Keras model.
+- Validation được tạo từ tập validation theo thời gian, không random split.
+- `ModelCheckpoint` giữ model tốt nhất theo `val_loss`.
+- `EarlyStopping` giúp tránh train quá lâu/overfitting.
 
-**Missing architecture details:** Current source does not define LSTM units, Dense layers, Dropout, optimizer, loss, or metrics. Do not invent these values in final analysis.
+### Layer 9 - Evaluation
 
-### Layer 8: Training Layer
+**File:** `src/evaluate_lstm.py`
 
-**Responsibility:** Intended to train the LSTM model and save model/history artifacts.
+**Hàm chính:** `evaluate_lstm()`, alias `evaluate_lstm_pipeline()`
 
-**Related file:** `src/train_lstm.py`
+Luồng xử lý:
 
-**Current implementation:** Placeholder only.
+1. Kiểm tra model `models/temperature_lstm.keras`.
+2. Đọc test series.
+3. Tạo window test.
+4. `model.predict(X_test)` trả về nhiệt độ scaled.
+5. Đảo chuẩn hóa `y_true` và `y_pred` về nhiệt độ thật.
+6. Tính:
+   - MAE
+   - MSE
+   - RMSE
+7. Lưu:
+   - `outputs/metrics/regression_metrics.csv`
+   - `outputs/metrics/predictions_test.csv`
+   - `outputs/figures/actual_vs_predicted.png`
+   - `outputs/figures/residual_plot.png`
 
-**Existing function:** `main_test_train_lstm()`
+Hàm phụ:
 
-**CLI behavior:** `python main.py train` looks for one of these functions in `src.train_lstm`:
+| Hàm | Vai trò |
+|---|---|
+| `load_lstm_model()` | Nạp model Keras |
+| `load_scaler_params()` | Đọc mean/std train |
+| `inverse_scale_temperature()` | Đảo chuẩn hóa |
+| `compute_regression_metrics()` | Tính MAE/MSE/RMSE |
+| `build_prediction_dataframe()` | Tạo bảng ngày, thật, dự đoán, sai số |
 
-- `train_lstm_pipeline`
-- `train_temperature_lstm`
-- `train_model`
-- `train`
+### Layer 10 - Next-Day Prediction
 
-None of these exists currently, so the CLI will report a missing implementation function if processed data is present.
+**File:** `src/predict_next_day.py`
 
-**Expected output:** Current config expects the model path `models/temp_lstm.keras`. No training history output path is implemented in code.
+**Hàm chính:** `predict_next_day()`
 
-### Layer 9: Evaluation Layer
+Luồng xử lý:
 
-**Responsibility:** Intended to load the trained model, predict on test windows, inverse-transform predictions, calculate metrics, and save evaluation artifacts.
+1. Đọc `data/processed/temperature_clean.csv`.
+2. Lấy `WINDOW_SIZE` ngày cuối cùng.
+3. Chuẩn hóa bằng `mean/std` train trong `scaler_params.json`.
+4. Reshape thành:
 
-**Related file:** `src/evaluate_lstm.py`
+```text
+(1, WINDOW_SIZE, 1)
+```
 
-**Current implementation:** Placeholder only.
+5. Gọi `model.predict`.
+6. Đảo chuẩn hóa về nhiệt độ thật.
+7. Tính ngày dự đoán = ngày cuối cùng + 1.
+8. In kết quả và lưu `outputs/metrics/next_day_prediction.txt`.
 
-**Existing function:** `main_test_temperature_evaluate_predict()`
+Điểm chống leakage:
 
-**CLI behavior:** `python main.py evaluate` first checks processed data and `models/temp_lstm.keras`. Since model is missing, the command stops with a readable missing-model error before looking for evaluate implementation.
+- Chỉ dùng các ngày đã có trong dữ liệu.
+- Không dùng giá trị mục tiêu tương lai.
+- Dùng scaler đã fit từ train.
 
-**Expected metrics:** MAE, MSE, RMSE. No actual metric calculation code exists currently.
+### Layer 11 - Visualization/Output
 
-### Layer 10: Prediction Layer
+**File:** `src/visualize_results.py`
 
-**Responsibility:** Intended to predict next-day temperature from the latest available window.
+**Hàm vẽ biểu đồ:**
 
-**Related file:** `src/predict_next_day.py`
+| Hàm | Output |
+|---|---|
+| `plot_temperature_series()` | `outputs/figures/temperature_series.png` |
+| `plot_training_history()` | `outputs/figures/training_loss_mae.png` |
+| `plot_actual_vs_predicted()` | `outputs/figures/actual_vs_predicted.png` |
+| `plot_residuals()` | `outputs/figures/residual_plot.png` |
 
-**Current implementation:** Placeholder only.
+Các biểu đồ dùng Matplotlib, không dùng seaborn hoặc framework ngoài.
 
-**Existing function:** `main_test_predict_next_day()`
+### Layer 12 - Test/Acceptance
 
-**CLI behavior:** `python main.py predict_next_day` checks processed data and `models/temp_lstm.keras`. Since model is missing, it stops with a readable missing-model error.
+**File:** `tests/test_temperature_end_to_end.py`
 
-**Expected flow:** Load scaler params, take latest `WINDOW_SIZE` days, scale input, reshape for LSTM, call `model.predict`, inverse-transform prediction, print/save predicted date/value. This expected flow is not implemented yet.
+Test hiện tại không train model thật, mục tiêu là kiểm tra nhanh:
 
-### Layer 11: Output / Report Layer
+- Cấu trúc thư mục.
+- `main.py self_test`.
+- `app_temperature_cli.py self_test`.
+- CLI từ chối command sai.
+- Thông báo thiếu model rõ ràng.
+- Windowing đúng shape.
+- Model build được nếu môi trường có TensorFlow.
+- Metric MAE/MSE/RMSE chạy với dữ liệu giả.
+- Input dự đoán reshape đúng `(1, 7, 1)`.
+- Không hard-code đường dẫn `C:\` hoặc `D:\` trong CLI.
 
-**Responsibility:** Store generated artifacts and final submission evidence.
+## 4. Pipeline dữ liệu từng bước
 
-**Related folders:**
-
-- `data/processed/`
-- `models/`
-- `reports/01_data_profile/`
-- `reports/02_training/`
-- `reports/03_evaluation/`
-- `reports/final_report/`
-
-**Existing outputs:**
-
-- Processed CSV files in `data/processed/`
-- `models/scaler_params.json`
-- Data profile JSON files in `reports/01_data_profile/`
-- Final submission documents in `reports/final_report/`
-
-**Missing outputs:**
-
-- `models/temp_lstm.keras`
-- Training history file
-- Training figures
-- Evaluation metrics
-- Test predictions
-- Evaluation figures
-
-**Note:** The requested `outputs/figures/`, `outputs/metrics/`, and `outputs/logs/` folders are not present and are not used by current code.
-
-### Layer 12: Test / Acceptance Layer
-
-**Responsibility:** Provide lightweight checks for folder structure, CLI behavior, missing-model messages, and no absolute paths in CLI files.
-
-**Related files:**
-
-- `tests/test_temperature_end_to_end.py`
-- `tests/sample_temperature.csv`
-
-**Important functions:**
-
-- `run_command()`
-- `assert_true()`
-- `test_required_folders()`
-- `test_self_test_runs()`
-- `test_app_wrapper_runs()`
-- `test_cli_argument_validation()`
-- `test_evaluate_missing_model_message()`
-- `test_no_absolute_paths_required_in_cli_files()`
-- `main()`
-
-**What is tested:**
-
-- Required folders exist or can be created.
-- `main.py self_test` exits successfully without traceback.
-- `app_temperature_cli.py self_test` works.
-- Invalid CLI commands are rejected.
-- Missing model message is readable.
-- CLI files do not contain obvious local Windows absolute paths.
-
-**What is not tested:**
-
-- Real LSTM training.
-- Real evaluation metrics.
-- Real next-day prediction.
-- Numerical correctness of preprocessing.
-- TensorFlow/Keras model behavior.
-
-## 4. Full Data Pipeline
-
-| Step | Input file/data | Processing function/file | Output file/data | Notes or risks |
+| Bước | File/hàm xử lý | Input | Output | Điểm cần giải thích |
 |---|---|---|---|---|
-| Step 1: User places `temperature.csv` into `data/raw/` | `data/raw/temperature.csv` | Manual setup | Raw CSV available | File exists in current repo. |
-| Step 2: CLI calls preprocessing command | CLI command `python main.py preprocess` | `main.preprocess()` | Calls preprocessing function | Requires raw CSV. |
-| Step 3: System reads CSV | Raw CSV | `src.data_utils.read_temperature_csv()` | Raw DataFrame | Handles NASA metadata by skiprows detection. |
-| Step 4: System parses date column | Raw DataFrame | `standardize_temperature_columns()` and Pandas `to_datetime` | Canonical `date` column | Supports `date`, `YEAR/MO/DY`, or `YEAR/DOY`. |
-| Step 5: System sorts by chronological order | Canonical DataFrame | `clean_temperature_timeseries()` | Sorted daily DataFrame | Duplicate days are grouped by mean. |
-| Step 6: System cleans missing/invalid temperature values | Sorted DataFrame | `clean_temperature_timeseries()` | Clean DataFrame | `-999` is treated as missing; values filled by interpolation by default. |
-| Step 7: System splits train/validation/test without shuffle | Clean DataFrame | `split_by_time()` | `train_df`, `val_df`, `test_df` | Prevents future data entering train through shuffle. |
-| Step 8: System fits scaler on train only | `train_df` | `fit_temperature_scaler()` | `{"mean", "std"}` | Important data leakage prevention. |
-| Step 9: System transforms all sets using train scaler | Splits + scaler params | `scale_time_splits()` and `transform_temperature()` | Scaled split DataFrames | Same mean/std applied to validation/test. |
-| Step 10: System creates LSTM windows | Scaled split DataFrames | Expected `src/windowing.py` | Expected `X_train`, `y_train`, etc. | Not implemented; current file is placeholder. |
-| Step 11: System trains LSTM | Windowed train/validation data | Expected `src/train_lstm.py` | Expected trained model | Not implemented; no `model.fit` exists. |
-| Step 12: System saves model and history | Trained model/history | Expected training module | Expected `models/temp_lstm.keras` and history file | Model file missing; history path not implemented. |
-| Step 13: System evaluates model | Trained model + test windows | Expected `src/evaluate_lstm.py` | Expected predictions/metrics | Not implemented. |
-| Step 14: System inverse-transforms predictions | Scaled predictions | `inverse_transform_temperature()` expected to be reused | Temperatures in original unit | Function exists, but evaluation/prediction modules do not use it yet. |
-| Step 15: System calculates MAE, MSE, RMSE | Original-scale y_true/y_pred | Expected evaluation module | Expected metric file | Not implemented. |
-| Step 16: System saves metrics and figures | Metrics/history/predictions | Expected evaluation/visualization modules | Expected report artifacts | Not implemented; `visualize_results.py` is placeholder. |
-| Step 17: System predicts next-day temperature from latest window | Latest scaled window | Expected `src/predict_next_day.py` | Predicted next-day temperature | Not implemented; model file missing. |
+| 1 | Người dùng đặt file | `data/raw/temperature.csv` | Raw CSV | Dữ liệu gốc không sửa trực tiếp |
+| 2 | `main.py preprocess` | CLI | Gọi `preprocess_temperature_pipeline()` | Điểm bắt đầu pipeline |
+| 3 | `read_temperature_csv()` | Raw CSV | DataFrame thô | Tự detect metadata NASA |
+| 4 | `standardize_temperature_columns()` | DataFrame thô | `date`, `temperature` | Hỗ trợ nhiều schema |
+| 5 | `validate_temperature_frame()` | DataFrame chuẩn | Pass/error | Báo lỗi nếu thiếu cột |
+| 6 | `clean_temperature_timeseries()` | DataFrame chuẩn | Chuỗi sạch | Ép kiểu, sort, xử lý missing |
+| 7 | `split_by_time()` | Chuỗi sạch | train/validation/test | Không shuffle |
+| 8 | `fit_temperature_scaler()` | Train | mean/std | Fit train only |
+| 9 | `transform_temperature()` | Train/val/test | `temperature_scaled` | Dùng cùng scaler train |
+| 10 | `create_sequences()` | Chuỗi scaled | X/y windows | Shape LSTM |
+| 11 | `build_lstm_model()` | `input_shape=(7,1)` | Keras model | LSTM + Dense |
+| 12 | `train_lstm()` | X/y train/val | Model/history/figure | Huấn luyện thật |
+| 13 | `evaluate_lstm()` | Model + test | Metric/predictions | Test set only |
+| 14 | `predict_next_day()` | Model + latest window | Next-day prediction | Không dùng tương lai |
 
-## 5. Function-Level Mapping Table
+## 5. Bảng ánh xạ file - chức năng
 
-Only functions/classes that actually exist in the repository are listed.
+| File | Chức năng chính | Input | Output |
+|---|---|---|---|
+| `main.py` | Điều phối CLI | Command | Gọi pipeline |
+| `app_temperature_cli.py` | Wrapper CLI | Command | Gọi `main.py` |
+| `src/config.py` | Cấu hình | None | Constants |
+| `src/data_utils.py` | Đọc/validate dữ liệu | Raw CSV | DataFrame chuẩn |
+| `src/preprocess_timeseries.py` | Làm sạch/split/scale | DataFrame | Processed CSV/JSON |
+| `src/windowing.py` | Tạo X/y | Chuỗi scaled | `(samples, 7, 1)`, `(samples, 1)` |
+| `src/model_lstm.py` | Build model | `input_shape` | Keras model |
+| `src/train_lstm.py` | Huấn luyện | Train/val windows | `.keras`, history, chart |
+| `src/evaluate_lstm.py` | Đánh giá | Model + test | MAE/MSE/RMSE, predictions |
+| `src/predict_next_day.py` | Dự đoán | Model + latest window | Text prediction |
+| `src/visualize_results.py` | Vẽ biểu đồ | DataFrame/history | PNG figures |
+| `src/check_processed_timeseries.py` | Kiểm tra artifact preprocess | Processed files | OK/error |
+| `tests/test_temperature_end_to_end.py` | Kiểm thử nhẹ | Dummy/project files | OK/error |
 
-| File | Function/Class | Purpose | Input | Output | Called by | Calls next | Notes |
-|---|---|---|---|---|---|---|---|
-| `main.py` | `CliError` | Custom readable CLI exception | Error message | Exception object | CLI guard functions | `main()` catches it | Does not expose traceback to user. |
-| `main.py` | `rel_path()` | Convert path to project-relative display | Path | String path | Error messages, self_test | Path operations | Helps avoid absolute local paths in output. |
-| `main.py` | `safe_import()` | Import module safely | Module name | Module or None | `self_test()`, `find_callable()` | `importlib.import_module()` | Prints missing dependency/import errors. |
-| `main.py` | `find_callable()` | Find real implementation function | Module name, candidate names | Callable | CLI command functions | `safe_import()` | Raises `CliError` if implementation missing. |
-| `main.py` | `ensure_raw_data_exists()` | Check raw CSV exists | None | None or error | `preprocess()` | `rel_path()` | Requires `data/raw/temperature.csv`. |
-| `main.py` | `ensure_processed_data_exists()` | Check preprocessing artifacts exist | None | None or error | `train()`, `evaluate()`, `predict_next_day()` | `rel_path()` | Requires processed CSV/JSON files. |
-| `main.py` | `ensure_model_exists()` | Check trained model exists | None | None or error | `evaluate()`, `predict_next_day()` | `rel_path()` | Requires `models/temp_lstm.keras`. |
-| `main.py` | `check_placeholder_module()` | Detect placeholder modules | Module name | Status string | `self_test()` | File read | Uses text markers `placeholder` or `main_test_`. |
-| `main.py` | `self_test()` | Check project structure and imports | None | Exit code 0 | CLI | `safe_import()`, `check_placeholder_module()` | Reports missing pandas/model but still completes. |
-| `main.py` | `preprocess()` | Run preprocessing pipeline | Raw CSV | Processed data artifacts | CLI | `find_callable()` | Calls `preprocess_temperature_pipeline()` if import succeeds. |
-| `main.py` | `train()` | Run training pipeline | Processed data | Expected model/history | CLI, `run_all()` | `find_callable()` | No matching real train function exists. |
-| `main.py` | `evaluate()` | Run evaluation pipeline | Processed data + model | Expected metrics | CLI, `run_all()` | `ensure_model_exists()` | Stops if model missing. |
-| `main.py` | `predict_next_day()` | Run next-day prediction | Processed data + model | Expected prediction | CLI, `run_all()` | `ensure_model_exists()` | Stops if model missing. |
-| `main.py` | `run_all()` | Run full pipeline order | Raw CSV | Full expected pipeline | CLI | `preprocess()`, `train()`, `evaluate()`, `predict_next_day()` | Will fail at incomplete stages. |
-| `main.py` | `build_parser()` | Build CLI parser | None | `ArgumentParser` | `main()`, `app_main()` | argparse | Supports actual command list. |
-| `main.py` | `main()` | CLI entrypoint | argv | Status code | `if __main__`, `app_main()` | `COMMANDS` | Handles errors cleanly. |
-| `app_temperature_cli.py` | `app_main()` | Friendly wrapper around main CLI | argv | Status code | `if __main__` | `build_parser()`, `main()` | Prints help when no command. |
-| `src.data_utils.py` | `_detect_skiprows_for_nasa_csv()` | Detect metadata rows in NASA CSV | CSV path | skiprows int | `read_temperature_csv()` | File read | Stops scan after 200 lines. |
-| `src.data_utils.py` | `read_temperature_csv()` | Read raw temperature CSV | CSV path | DataFrame | `load_temperature_data()` | `_detect_skiprows_for_nasa_csv()`, `pd.read_csv()` | Raises FileNotFoundError if missing. |
-| `src.data_utils.py` | `_find_column_case_insensitive()` | Find column ignoring case | DataFrame, candidates | Column name or None | `standardize_temperature_columns()` | None | Used for flexible input schema. |
-| `src.data_utils.py` | `standardize_temperature_columns()` | Convert input schema to `date`/`temperature` | DataFrame | Canonical DataFrame | `load_temperature_data()` | `_find_column_case_insensitive()`, Pandas datetime | Supports NASA and plain CSV. |
-| `src.data_utils.py` | `validate_temperature_frame()` | Validate minimum schema/data | DataFrame | None or error | `load_temperature_data()`, `profile_temperature_data()` | Pandas parsing | Rejects empty/invalid data. |
-| `src.data_utils.py` | `load_temperature_data()` | Read, standardize, validate | CSV path | Canonical DataFrame | `preprocess_temperature_pipeline()` | `read_temperature_csv()`, `standardize_temperature_columns()`, `validate_temperature_frame()` | Main data input function. |
-| `src.data_utils.py` | `profile_temperature_data()` | Build compact data profile | DataFrame | dict | `preprocess_temperature_pipeline()`, test helper | `validate_temperature_frame()` | Saves rows, missing counts, date range, min/max/mean. |
-| `src.data_utils.py` | `save_data_profile()` | Save profile JSON | dict, output path | JSON file | Not currently called by pipeline | Path write | Similar save behavior is implemented through `save_json()`. |
-| `src.data_utils.py` | `main_test_temperature_data_pipeline()` | Quick sample test | Sample CSV | Console output | Direct execution | `load_temperature_data()`, `profile_temperature_data()` | Not used by main CLI. |
-| `src.preprocess_timeseries.py` | `clean_temperature_timeseries()` | Clean daily time series | Canonical DataFrame | Clean DataFrame | `preprocess_temperature_pipeline()` | Pandas cleaning/interpolation | Handles `-999`, duplicate dates, missing days. |
-| `src.preprocess_timeseries.py` | `split_by_time()` | Chronological train/val/test split | Clean DataFrame | Three DataFrames | `preprocess_temperature_pipeline()` | Pandas slicing | No shuffle; avoids future leakage. |
-| `src.preprocess_timeseries.py` | `_date_range_info()` | Summarize split date range | DataFrame | dict | `build_split_info()` | Pandas datetime | Records rows/start/end. |
-| `src.preprocess_timeseries.py` | `build_split_info()` | Build split metadata | train/val/test DataFrames | dict | `preprocess_temperature_pipeline()` | `_date_range_info()` | Writes `chronological_no_shuffle`. |
-| `src.preprocess_timeseries.py` | `fit_temperature_scaler()` | Fit standard scaler params on train | train DataFrame | dict | `scale_time_splits()` | Pandas numeric stats | Avoids data leakage. |
-| `src.preprocess_timeseries.py` | `transform_temperature()` | Apply train-fitted scaling | DataFrame, scaler params | DataFrame with scaled column | `scale_time_splits()` | Pandas arithmetic | Adds `temperature_scaled`. |
-| `src.preprocess_timeseries.py` | `inverse_transform_temperature()` | Convert scaled values to original units | values, scaler params | original-scale values | Expected evaluate/predict future use | Arithmetic | Currently not called by placeholder modules. |
-| `src.preprocess_timeseries.py` | `scale_time_splits()` | Scale all splits | train/val/test DataFrames | scaled splits + scaler params | `preprocess_temperature_pipeline()` | `fit_temperature_scaler()`, `transform_temperature()` | Fits train only. |
-| `src.preprocess_timeseries.py` | `save_json()` | Save dict as JSON | dict, output path | JSON file | `preprocess_temperature_pipeline()` | Path write | Used for split/scaler/profile files. |
-| `src.preprocess_timeseries.py` | `load_scaler_params()` | Load scaler params | JSON path | dict | Not currently called by placeholder modules | Path read/json | Expected prediction/evaluation helper. |
-| `src.preprocess_timeseries.py` | `preprocess_temperature_pipeline()` | Full preprocessing pipeline | CSV path | dict + saved artifacts | `main.preprocess()`, direct `main()` | All preprocessing helpers | Main implemented ML-prep pipeline. |
-| `src.preprocess_timeseries.py` | `main()` | Direct preprocessing entrypoint | None | Console output + artifacts | Direct execution | `preprocess_temperature_pipeline()` | Separate from project CLI. |
-| `src.check_processed_timeseries.py` | `_require_file()` | Require a file exists | Path | None or error | `check_processed_timeseries()` | Path exists | Validates preprocessing artifacts. |
-| `src.check_processed_timeseries.py` | `_check_csv()` | Read CSV and validate columns | Path, required columns | DataFrame | `check_processed_timeseries()` | `pd.read_csv()` | Checks empty files. |
-| `src.check_processed_timeseries.py` | `check_processed_timeseries()` | Validate processed artifacts | None | Console output or error | Direct execution | `_require_file()`, `_check_csv()` | Confirms split and scaler metadata. |
-| `src.windowing.py` | `main_test_windowing()` | Placeholder check | None | Console output | Direct execution, self_test text detection | None | No real windowing logic. |
-| `src.model_lstm.py` | `main_test_temperature_lstm_build()` | Placeholder check | None | Console output | Direct execution, self_test text detection | None | No real Keras model. |
-| `src.train_lstm.py` | `main_test_train_lstm()` | Placeholder check | None | Console output | Direct execution, self_test text detection | None | No `model.fit`. |
-| `src.evaluate_lstm.py` | `main_test_temperature_evaluate_predict()` | Placeholder check | None | Console output | Direct execution, self_test text detection | None | No MAE/MSE/RMSE. |
-| `src.predict_next_day.py` | `main_test_predict_next_day()` | Placeholder check | None | Console output | Direct execution, self_test text detection | None | No `model.predict`. |
-| `src.visualize_results.py` | `main_test_visualize_results()` | Placeholder check | None | Console output | Direct execution | None | No figures. |
-| `tests/test_temperature_end_to_end.py` | `run_command()` | Run Python command in project root | args | CompletedProcess | Test functions | `subprocess.run()` | Captures output. |
-| `tests/test_temperature_end_to_end.py` | `assert_true()` | Minimal assertion helper | condition, message | None or AssertionError | Test functions | None | Avoids requiring pytest. |
-| `tests/test_temperature_end_to_end.py` | `test_required_folders()` | Check folders exist/can be created | None | None | test `main()` | `assert_true()` | Creates missing folders if needed. |
-| `tests/test_temperature_end_to_end.py` | `test_self_test_runs()` | Check main self_test | None | None | test `main()` | `run_command()` | Ensures no traceback. |
-| `tests/test_temperature_end_to_end.py` | `test_app_wrapper_runs()` | Check wrapper self_test | None | None | test `main()` | `run_command()` | Ensures wrapper works. |
-| `tests/test_temperature_end_to_end.py` | `test_cli_argument_validation()` | Check invalid CLI rejected | None | None | test `main()` | `run_command()` | Uses argparse invalid choice. |
-| `tests/test_temperature_end_to_end.py` | `test_evaluate_missing_model_message()` | Check missing model message | None | None | test `main()` | `run_command()` | Only asserts if model missing. |
-| `tests/test_temperature_end_to_end.py` | `test_no_absolute_paths_required_in_cli_files()` | Check CLI files do not hard-code local paths | None | None | test `main()` | File read | Scans for `C:\` or `D:\`. |
-| `tests/test_temperature_end_to_end.py` | `main()` | Run all acceptance tests | None | status code | Direct execution | All test functions | Does not require pytest. |
+## 6. Artifact mapping
 
-## 6. CLI Command Mapping
+| Artifact | Path | Tạo bởi | Dùng bởi |
+|---|---|---|---|
+| Raw CSV | `data/raw/temperature.csv` | Người dùng | Preprocess |
+| Clean CSV | `data/processed/temperature_clean.csv` | Preprocess | Predict |
+| Train CSV | `data/processed/train_series.csv` | Preprocess | Train |
+| Validation CSV | `data/processed/val_series.csv` | Preprocess | Train |
+| Test CSV | `data/processed/test_series.csv` | Preprocess | Evaluate |
+| Split info | `data/processed/split_info.json` | Preprocess | Kiểm tra/báo cáo |
+| Scaler params | `models/scaler_params.json` | Preprocess | Evaluate/Predict |
+| Model | `models/temperature_lstm.keras` | Train | Evaluate/Predict |
+| History | `outputs/logs/history.csv` | Train | Plot/report |
+| Metrics | `outputs/metrics/regression_metrics.csv` | Evaluate | Report |
+| Predictions | `outputs/metrics/predictions_test.csv` | Evaluate | Report/plot |
+| Next-day result | `outputs/metrics/next_day_prediction.txt` | Predict | Report |
+| Figures | `outputs/figures/*.png` | Preprocess/train/evaluate | Report |
 
-| Command | File/function triggered | Required input | Generated output | When to use | Possible error if missing data/model |
-|---|---|---|---|---|---|
-| `python main.py self_test` | `main.py` -> `self_test()` | Repository files/folders | Console status report | Before submission or debugging setup | Reports missing dependencies/model as readable notices; returns 0 if self-test completes. |
-| `python main.py preprocess` | `main.py` -> `preprocess()` -> `src.preprocess_timeseries.preprocess_temperature_pipeline()` | `data/raw/temperature.csv`, Pandas installed | Processed CSVs, `split_info.json`, `scaler_params.json`, data profile JSONs | After placing raw CSV | Missing raw CSV; missing Pandas causes import error caught by CLI. |
-| `python main.py train` | `main.py` -> `train()` -> expected train function in `src.train_lstm` | Processed CSV/JSON artifacts | Expected model/history, but not implemented | After preprocessing and after training module is implemented | Missing processed data; missing implementation function. |
-| `python main.py evaluate` | `main.py` -> `evaluate()` -> expected evaluate function in `src.evaluate_lstm` | Processed data + `models/temp_lstm.keras` | Expected metrics/predictions, but not implemented | After real training | Missing model currently stops command. |
-| `python main.py predict_next_day` | `main.py` -> `predict_next_day()` -> expected predict function in `src.predict_next_day` | Processed data + `models/temp_lstm.keras` | Expected next-day prediction, but not implemented | After real training | Missing model currently stops command. |
-| `python main.py run_all` | `main.py` -> `run_all()` | Raw CSV plus all later implementations | Full expected pipeline | End-to-end run after all modules are complete | Will fail at missing dependency/model/function depending on stage. |
-| `python app_temperature_cli.py self_test` | `app_temperature_cli.py` -> `app_main()` -> `main.main()` | Same as main CLI | Same as main CLI | Student-friendly wrapper | Same as main CLI. |
+## 7. Mermaid diagram cho ChatGPT Web
 
-## 7. Data Artifact Mapping
-
-Only artifacts present or expected by actual code/config are included.
-
-| Artifact | Path | Created by | Used by | Meaning |
-|---|---|---|---|---|
-| Raw temperature CSV | `data/raw/temperature.csv` | User/manual data placement | `read_temperature_csv()`, `preprocess_temperature_pipeline()` | Original time-series data. Present. |
-| Clean temperature CSV | `data/processed/temperature_clean.csv` | `preprocess_temperature_pipeline()` | `check_processed_timeseries()`, expected training/windowing | Clean daily temperature series. Present. |
-| Train scaled CSV | `data/processed/temperature_train_scaled.csv` | `preprocess_temperature_pipeline()` | `check_processed_timeseries()`, expected training/windowing | Chronological train split with `temperature_scaled`. Present. |
-| Validation scaled CSV | `data/processed/temperature_val_scaled.csv` | `preprocess_temperature_pipeline()` | `check_processed_timeseries()`, expected validation | Chronological validation split. Present. |
-| Test scaled CSV | `data/processed/temperature_test_scaled.csv` | `preprocess_temperature_pipeline()` | `check_processed_timeseries()`, expected evaluation | Chronological test split. Present. |
-| Full scaled CSV | `data/processed/temperature_scaled.csv` | `preprocess_temperature_pipeline()` | `check_processed_timeseries()` | All scaled rows with split labels. Present. |
-| Split info | `data/processed/split_info.json` | `build_split_info()` via `preprocess_temperature_pipeline()` | `check_processed_timeseries()` | Stores split ratios, row counts, date ranges, and `chronological_no_shuffle`. Present. |
-| Scaler params | `models/scaler_params.json` | `fit_temperature_scaler()` via `preprocess_temperature_pipeline()` | `load_scaler_params()`, expected evaluate/predict | Stores train mean/std for scaling/inverse-scaling. Present. |
-| Raw data profile | `reports/01_data_profile/raw_data_profile.json` | `profile_temperature_data()` via `preprocess_temperature_pipeline()` | Reports/final documentation | Summary of raw data. Present. |
-| Clean data profile | `reports/01_data_profile/clean_data_profile.json` | `profile_temperature_data()` via `preprocess_temperature_pipeline()` | Reports/final documentation | Summary of cleaned data. Present. |
-| Model file | `models/temp_lstm.keras` | Expected training module | `ensure_model_exists()`, expected evaluate/predict | Trained LSTM model. Missing. |
-| Training history | Not configured in current code | Expected training module | Expected reports | Missing; no path in config. |
-| Regression metrics | Not configured in current code | Expected evaluation module | Expected reports | Missing; no path in config. |
-| Test predictions | Not configured in current code | Expected evaluation module | Expected reports | Missing; no path in config. |
-| Training figure | Not configured in current code | Expected visualization/training module | Expected reports | Missing; no path in config. |
-| Actual vs predicted figure | Not configured in current code | Expected evaluation/visualization module | Expected reports | Missing; no path in config. |
-| Submission checklist | `reports/final_report/submission_checklist.md` | Manual/project integration | Final report | Tracks completion status. Present. |
-| Test log | `reports/final_report/test_log.txt` | Manual/project integration | Final report | Records validation and missing artifacts. Present. |
-| Cleanup summary | `reports/final_report/cleanup_summary.md` | Manual/project integration | Final report | Explains cleanup decisions. Present. |
-
-## 8. Model Architecture Explanation
-
-### What can be stated from current source
-
-The project is intended to use an LSTM model for next-day temperature forecasting, but the current `src/model_lstm.py` does not define a real model. Therefore, the exact architecture is unknown from source code.
-
-Known configuration values that would likely affect the model:
-
-- `WINDOW_SIZE = 7`
-- `HORIZON = 1`
-- `BATCH_SIZE = 32`
-- `EPOCHS = 10`
-- `LEARNING_RATE = 0.001`
-- `MODEL_PATH = models/temp_lstm.keras`
-
-### General LSTM explanation for this project context
-
-LSTM is appropriate for time-series forecasting because it is designed to learn temporal dependencies from ordered sequences. In this project, the intended input sequence is a rolling window of recent temperature values, and the target is the next-day temperature.
-
-Expected input shape after windowing:
-
-```text
-(samples, WINDOW_SIZE, features)
-```
-
-For a univariate temperature series, `features` would usually be `1`, so with `WINDOW_SIZE = 7`, each sample would represent 7 consecutive days of scaled temperature.
-
-Expected output shape:
-
-```text
-(samples, 1)
-```
-
-or a one-dimensional `(samples,)` target depending on implementation.
-
-### Missing architecture details
-
-The source code does not currently specify:
-
-- LSTM units
-- Number of LSTM layers
-- Dense layer structure
-- Dropout
-- Loss function
-- Metrics
-- Optimizer
-- `model.compile()`
-- `model.fit()`
-- `model.predict()`
-
-### Inverse transformation
-
-The function `inverse_transform_temperature(values, scaler_params)` exists in `src/preprocess_timeseries.py`. It converts standardized predictions back to the original temperature unit:
-
-```text
-original_value = scaled_value * std + mean
-```
-
-This should be used in future evaluation and prediction modules, but current placeholder files do not call it.
-
-No performance values should be reported because no real training/evaluation result exists in the source.
-
-## 9. Data Leakage Prevention
-
-### Existing protections in current code
-
-1. **Chronological split:** `split_by_time()` sorts by `DATE_COL` and slices train/validation/test in order.
-
-2. **No shuffle:** `split_info.json` records `split_rule = "chronological_no_shuffle"`. `check_processed_timeseries()` validates this.
-
-3. **Scaler fit on train only:** `fit_temperature_scaler()` receives `train_df` only. `scale_time_splits()` fits scaler on train, then transforms validation/test using the same params.
-
-4. **Saved scaler metadata:** `models/scaler_params.json` stores train mean/std, allowing future evaluate/predict modules to use the same scaling.
-
-### Possible risks or limitations
-
-1. **Interpolation may use future values inside the full cleaned series:** `clean_temperature_timeseries()` uses `interpolate(method="linear", limit_direction="both")` before splitting. Linear interpolation can use values on both sides of a missing point. This is acceptable for many data-cleaning workflows, but for strict forecasting evaluation it can be considered a leakage risk if missing values in train are interpolated using future validation/test data. A safer course-scope improvement would be to split first or restrict imputation to past-only methods where required.
-
-2. **Windowing not implemented:** Since no real windowing exists, there is not yet code enforcing that prediction windows avoid future target values.
-
-3. **Evaluation/prediction not implemented:** There is no current code proving that inverse transformation, metric calculation, and prediction window selection are leakage-safe.
-
-4. **Model file missing:** `models/temp_lstm.keras` is absent, so no real model evaluation can be audited.
-
-## 10. Mermaid Diagrams
-
-### Diagram 1: System Architecture
+### 7.1 Kiến trúc tổng thể
 
 ```mermaid
 flowchart TD
-    A[CLI: main.py / app_temperature_cli.py] --> B[Configuration: src/config.py]
-    B --> C[Data Input: src/data_utils.py]
-    C --> D[Data Preprocessing: src/preprocess_timeseries.py]
-    D --> E[Scaling: train-only mean/std]
-    E --> F[Windowing: src/windowing.py placeholder]
-    F --> G[LSTM Model: src/model_lstm.py placeholder]
-    G --> H[Training: src/train_lstm.py placeholder]
-    H --> I[Evaluation: src/evaluate_lstm.py placeholder]
-    H --> J[Prediction: src/predict_next_day.py placeholder]
-    I --> K[Outputs and Reports]
-    J --> K
-    D --> K
+    U[Người dùng / CLI] --> MAIN[main.py]
+    MAIN --> CFG[src/config.py]
+    MAIN --> PRE[src/preprocess_timeseries.py]
+    PRE --> DU[src/data_utils.py]
+    DU --> RAW[data/raw/temperature.csv]
+    PRE --> PROC[data/processed/*.csv]
+    PRE --> SCALER[models/scaler_params.json]
+    MAIN --> TR[src/train_lstm.py]
+    TR --> WIN[src/windowing.py]
+    TR --> MOD[src/model_lstm.py]
+    TR --> MODEL[models/temperature_lstm.keras]
+    TR --> HIST[outputs/logs/history.csv]
+    MAIN --> EV[src/evaluate_lstm.py]
+    EV --> MODEL
+    EV --> SCALER
+    EV --> MET[outputs/metrics/regression_metrics.csv]
+    EV --> PRED[outputs/metrics/predictions_test.csv]
+    MAIN --> NX[src/predict_next_day.py]
+    NX --> MODEL
+    NX --> NEXT[outputs/metrics/next_day_prediction.txt]
+    PRE --> VIZ[src/visualize_results.py]
+    TR --> VIZ
+    EV --> VIZ
+    VIZ --> FIG[outputs/figures/*.png]
 ```
 
-### Diagram 2: Data Pipeline
-
-```mermaid
-flowchart TD
-    A[data/raw/temperature.csv] --> B[read_temperature_csv]
-    B --> C[standardize_temperature_columns]
-    C --> D[validate_temperature_frame]
-    D --> E[clean_temperature_timeseries]
-    E --> F[split_by_time: chronological no shuffle]
-    F --> G[fit_temperature_scaler on train only]
-    G --> H[transform train/validation/test]
-    H --> I[data/processed/*.csv]
-    H --> J[models/scaler_params.json]
-    I --> K[Expected windowing]
-    K --> L[Expected LSTM training]
-    L --> M[Expected evaluation]
-    L --> N[Expected next-day prediction]
-```
-
-### Diagram 3: File / Layer Dependency
+### 7.2 Pipeline dữ liệu
 
 ```mermaid
 flowchart LR
-    main[main.py] --> config[src/config.py]
-    main --> pre[src/preprocess_timeseries.py]
-    main --> train[src/train_lstm.py]
-    main --> eval[src/evaluate_lstm.py]
-    main --> pred[src/predict_next_day.py]
-    app[app_temperature_cli.py] --> main
-    pre --> config
-    pre --> datautils[src/data_utils.py]
-    check[src/check_processed_timeseries.py] --> config
-    check --> pre
-    tests[tests/test_temperature_end_to_end.py] --> main
-    tests --> app
-    train --> model[src/model_lstm.py placeholder]
-    train --> window[src/windowing.py placeholder]
-    eval --> viz[src/visualize_results.py placeholder]
-    pred --> model
+    A[Raw CSV] --> B[Đọc CSV]
+    B --> C[Chuẩn hóa cột date/temperature]
+    C --> D[Làm sạch + sort theo thời gian]
+    D --> E[Split train/validation/test]
+    E --> F[Fit scaler trên train]
+    F --> G[Transform train/val/test]
+    G --> H[Tạo window X,y]
+    H --> I[Train LSTM]
+    I --> J[Evaluate test]
+    I --> K[Predict next day]
+    J --> L[Metrics + figures]
+    K --> M[next_day_prediction.txt]
 ```
 
-## 11. Strengths and Limitations
+### 7.3 Mô hình LSTM
 
-### Current strengths
+```mermaid
+flowchart TD
+    A[Input: 7 ngày x 1 feature] --> B[LSTM 32 units]
+    B --> C[Dropout 0.2]
+    C --> D[Dense 32 ReLU]
+    D --> E[Dense 1]
+    E --> F[Output: nhiệt độ scaled ngày tiếp theo]
+    F --> G[Đảo chuẩn hóa về nhiệt độ thật]
+```
 
-- Clear CLI integration with readable error messages.
-- Uses `pathlib` and relative project paths through `src/config.py`.
-- Supports multiple raw CSV formats, including NASA POWER formats.
-- Validates input data before preprocessing.
-- Cleans and sorts data chronologically.
-- Splits train/validation/test without shuffle.
-- Fits standardization parameters on train only.
-- Saves processed artifacts and profiles for reporting.
-- Includes lightweight acceptance tests that do not require pytest.
-- Documents missing model and placeholder modules rather than fabricating results.
+### 7.4 Chống rò rỉ dữ liệu
 
-### Current limitations
+```mermaid
+flowchart TD
+    A[Chuỗi đã sort theo ngày] --> B[Train: đoạn đầu]
+    A --> C[Validation: đoạn giữa]
+    A --> D[Test: đoạn cuối]
+    B --> E[Fit mean/std]
+    E --> F[Transform train]
+    E --> G[Transform validation]
+    E --> H[Transform test]
+    H --> I[Evaluate]
+```
 
-- `src/windowing.py` is placeholder; no supervised learning windows are created.
-- `src/model_lstm.py` is placeholder; no TensorFlow/Keras LSTM architecture exists.
-- `src/train_lstm.py` is placeholder; no `model.fit`, model saving, or training history exists.
-- `src/evaluate_lstm.py` is placeholder; no MAE/MSE/RMSE calculation exists.
-- `src/predict_next_day.py` is placeholder; no actual next-day prediction exists.
-- `src/visualize_results.py` is placeholder; no figures are generated.
-- `models/temp_lstm.keras` is missing.
-- No configured paths exist for training history, regression metrics, predictions, or figures.
-- `outputs/` folder requested in some architecture templates is not used by current code.
-- Current environment used by self-test is missing `pandas`, so implemented data modules cannot import there until dependencies are installed.
+## 8. Điểm phức tạp cần ChatGPT Web giải thích kỹ
 
-### Suggestions within course scope
+1. **Chuỗi thời gian không được shuffle**  
+   Nếu shuffle, model có thể học từ tương lai, khiến metric đẹp giả.
 
-- Implement `create_windows()` or equivalent in `src/windowing.py`.
-- Implement a simple LSTM regression model in `src/model_lstm.py` using the configured `WINDOW_SIZE` and `LEARNING_RATE`.
-- Implement `train_lstm_pipeline()` in `src/train_lstm.py` to load scaled splits, create windows, train with validation, and save `models/temp_lstm.keras`.
-- Add configured report paths for history, metrics, predictions, and figures.
-- Implement `evaluate_lstm_pipeline()` to compute MAE, MSE, RMSE on the test set and save real outputs only.
-- Implement `predict_next_day()` to use the latest valid window and inverse-transform the prediction.
-- Consider whether interpolation before splitting is acceptable for the course report; if strict leakage prevention is required, move imputation logic after splitting or use past-only imputation.
+2. **Scaler chỉ fit trên train**  
+   Validation/test phải dùng mean/std của train để tránh rò rỉ thống kê.
 
-## 12. Summary for ChatGPT Web Analysis
+3. **Windowing biến time series thành supervised learning**  
+   LSTM không nhận toàn bộ DataFrame trực tiếp mà nhận tensor 3D `(samples, timesteps, features)`.
 
-The project `temperature_forecast` is a CLI-based Deep Learning practice project for next-day temperature forecasting using an intended LSTM model. The implemented architecture currently covers configuration, data input, preprocessing, chronological splitting, train-only standardization, artifact saving, CLI integration, and lightweight acceptance tests.
+4. **Mô hình dự đoán giá trị đã chuẩn hóa**  
+   Output của model là nhiệt độ scaled, cần đảo chuẩn hóa để báo cáo nhiệt độ thật.
 
-Main layers:
+5. **Evaluate khác predict_next_day**  
+   Evaluate dùng test set có nhãn thật để tính metric. Predict dùng cửa sổ cuối cùng để dự đoán tương lai chưa có nhãn.
 
-- CLI / application entry layer: `main.py`, `app_temperature_cli.py`
-- Configuration layer: `src/config.py`
-- Data input layer: `src/data_utils.py`
-- Preprocessing and scaling layer: `src/preprocess_timeseries.py`
-- Processed-data validation layer: `src/check_processed_timeseries.py`
-- Placeholder ML layers: `src/windowing.py`, `src/model_lstm.py`, `src/train_lstm.py`, `src/evaluate_lstm.py`, `src/predict_next_day.py`, `src/visualize_results.py`
-- Report/test layer: `reports/`, `tests/`
+6. **Interpolation trước split**  
+   Đây là điểm cần giải thích cẩn thận. Code hiện tại làm sạch toàn chuỗi trước khi split. Với yêu cầu chống leakage nghiêm ngặt, có thể cân nhắc impute sau split hoặc dùng forward-fill.
 
-Main data pipeline:
+7. **Artifact cũ và mới cùng tồn tại**  
+   Code mới tạo `train_series.csv`, `val_series.csv`, `test_series.csv`, nhưng vẫn tương thích artifact cũ `temperature_train_scaled.csv`, `temperature_val_scaled.csv`, `temperature_test_scaled.csv`.
 
-Raw CSV in `data/raw/temperature.csv` -> read/standardize columns -> validate -> clean daily time series -> sort chronologically -> split train/validation/test without shuffle -> fit scaler on train only -> transform all splits -> save processed CSVs, `split_info.json`, `scaler_params.json`, and data profile JSONs.
+## 9. Gợi ý cho ChatGPT Web khi viết báo cáo kiến trúc
 
-Main model:
+Khi dùng tài liệu này trong ChatGPT Web, nên yêu cầu:
 
-The intended model is LSTM with TensorFlow/Keras, but no real architecture is implemented in current source. Exact model layers, loss, optimizer, metrics, and training flow are missing.
+- Vẽ kiến trúc theo 4 khối lớn: Input/Preprocessing, Model Training, Evaluation, Prediction/Output.
+- Giải thích kỹ shape dữ liệu trước và sau windowing.
+- Giải thích LSTM layer theo ngữ cảnh chuỗi nhiệt độ.
+- Nhấn mạnh chống rò rỉ dữ liệu: chronological split và train-only scaler.
+- Không ghi metric cụ thể nếu chưa có file `regression_metrics.csv` từ chạy thật.
+- Ghi rõ model chỉ dự đoán một giá trị nhiệt độ ngày tiếp theo.
 
-Main outputs:
+## 10. Tóm tắt ngắn
 
-Existing outputs are preprocessing artifacts in `data/processed/`, scaler params in `models/scaler_params.json`, and data profiles in `reports/01_data_profile/`. Missing outputs include the trained model `models/temp_lstm.keras`, training history, evaluation metrics, predictions, and figures.
-
-Key risks:
-
-- ML pipeline layers are incomplete placeholders.
-- No real model results exist.
-- The current environment reports missing `pandas`.
-- Interpolation is done before chronological split, which may need review for strict leakage prevention.
-
-What ChatGPT Web should focus on:
-
-- Analyze the architecture as a partially implemented pipeline.
-- Clearly separate implemented preprocessing/integration logic from placeholder ML layers.
-- Emphasize data leakage protections already present: chronological split and train-only scaler.
-- Recommend course-scope implementation steps for windowing, LSTM training, evaluation, prediction, and artifact reporting without adding unrelated frameworks.
+`temperature_forecast` là hệ thống CLI dự đoán nhiệt độ ngày tiếp theo bằng LSTM. Kiến trúc được chia thành các lớp: CLI, config, data input, preprocessing, scaling, windowing, model, training, evaluation, prediction, visualization và tests. Dữ liệu đi từ `data/raw/temperature.csv`, được làm sạch và chia theo thời gian, chuẩn hóa bằng train scaler, chuyển thành cửa sổ LSTM, huấn luyện model, đánh giá bằng MAE/MSE/RMSE và dự đoán ngày tiếp theo từ cửa sổ mới nhất.
