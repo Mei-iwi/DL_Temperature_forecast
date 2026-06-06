@@ -1,5 +1,15 @@
 # Tóm tắt dọn dẹp cấu trúc project
 
+## Cập nhật sau khi hoàn thiện pipeline LSTM
+
+- `src/windowing.py` đã được thay bằng logic tạo cửa sổ dữ liệu LSTM thật.
+- `src/model_lstm.py` đã được thay bằng hàm build mô hình LSTM TensorFlow/Keras.
+- `src/train_lstm.py` đã có pipeline huấn luyện, lưu model, history và biểu đồ.
+- `src/evaluate_lstm.py` đã có pipeline đánh giá, đảo chuẩn hóa và tính MAE/MSE/RMSE.
+- `src/predict_next_day.py` đã có pipeline dự đoán nhiệt độ ngày tiếp theo.
+- `src/visualize_results.py` đã có các hàm lưu biểu đồ bằng Matplotlib.
+- Các ghi chú cũ về "file giữ chỗ" chỉ còn giá trị lịch sử của lượt dọn dẹp trước.
+
 ## File đã giữ lại và lý do
 
 - `README.md`: tài liệu chính hướng dẫn chạy project, cài thư viện, mô tả dữ liệu và checklist nghiệm thu.

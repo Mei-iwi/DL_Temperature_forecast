@@ -1,24 +1,29 @@
-Acceptance test log
+Test log nghiệm thu
 Date/time: 2026-06-06, Asia/Bangkok
 
-Project inspected:
+Project:
 - temperature_forecast
-- Topic: Predict next-day temperature using LSTM with TensorFlow/Keras
+- Đề tài: Dự đoán nhiệt độ ngày tiếp theo bằng LSTM
 
-Commands checked:
-- python main.py self_test: succeeded.
-- python app_temperature_cli.py self_test: succeeded.
-- python tests/test_temperature_end_to_end.py: succeeded.
-- pip install -r requirements.txt: attempted, but did not complete in the current MSYS2 Python environment.
+Các lệnh cần kiểm tra:
+- python main.py self_test
+- python tests/test_temperature_end_to_end.py
+- python app_temperature_cli.py self_test
+- python main.py preprocess
+- python main.py train
+- python main.py evaluate
+- python main.py predict_next_day
+- python main.py run_all
 
-Expected outputs:
-- self_test prints required folders, files, module import status, configured raw data path, configured model path, and clear missing-artifact notices.
-- preprocess should read data/raw/temperature.csv and create processed CSV/JSON files.
-- train should call the real LSTM training implementation once src/train_lstm.py is completed.
-- evaluate should require processed data and a trained model before computing MAE, MSE, RMSE.
-- predict_next_day should require processed data and a trained model before writing a prediction.
+Kỳ vọng:
+- self_test kiểm tra cấu trúc thư mục, file bắt buộc, import module và artifact chính.
+- preprocess đọc `data/raw/temperature.csv`, tạo dữ liệu sạch, train/validation/test, split_info và scaler_params.
+- train tạo cửa sổ LSTM, huấn luyện model thật và lưu `models/temperature_lstm.keras`.
+- evaluate nạp model thật, dự đoán trên test set, đảo chuẩn hóa và lưu MAE/MSE/RMSE.
+- predict_next_day dùng WINDOW_SIZE ngày cuối cùng để dự đoán ngày tiếp theo.
+- run_all chạy theo thứ tự preprocess -> train -> evaluate -> predict_next_day.
 
-Existing artifacts found during inspection:
+Artifact hiện có trước khi chạy train/evaluate thật:
 - data/raw/temperature.csv
 - data/processed/temperature_clean.csv
 - data/processed/temperature_train_scaled.csv
@@ -30,40 +35,32 @@ Existing artifacts found during inspection:
 - reports/01_data_profile/raw_data_profile.json
 - reports/01_data_profile/clean_data_profile.json
 
-Missing artifacts:
-- models/temp_lstm.keras
-- training history output from a real training run
-- evaluation metrics output from a real evaluation run
-- prediction output from a real prediction run
-- training/evaluation figures from real runs
+Artifact sẽ được tạo sau khi chạy pipeline mới:
+- data/processed/train_series.csv
+- data/processed/val_series.csv
+- data/processed/test_series.csv
+- models/temperature_lstm.keras
+- outputs/logs/history.csv
+- outputs/figures/temperature_series.png
+- outputs/figures/training_loss_mae.png
+- outputs/figures/actual_vs_predicted.png
+- outputs/figures/residual_plot.png
+- outputs/metrics/regression_metrics.csv
+- outputs/metrics/predictions_test.csv
+- outputs/metrics/next_day_prediction.txt
 
-Dependency/environment notes:
-- The active Python environment did not have pandas installed when self_test was run, so imports for src.data_utils and src.preprocess_timeseries reported "No module named 'pandas'".
-- The first pip install attempt was blocked by network permissions.
-- The second pip install attempt was allowed to access the network, but failed because the current MSYS2 Python environment is externally managed and a build dependency failed with SSL certificate verification errors.
-- Recommended next step: create a virtual environment with python -m venv .venv, activate it, then rerun pip install -r requirements.txt.
+Lưu ý trước khi nộp:
+- Không ghi MAE, MSE, RMSE, loss hoặc giá trị dự đoán vào báo cáo nếu chưa chạy thật.
+- Không shuffle dữ liệu chuỗi thời gian.
+- Chỉ fit scaler trên tập train.
+- Nếu môi trường thiếu pandas hoặc tensorflow, cần kích hoạt `.venv` và chạy `pip install -r requirements.txt`.
 
-Placeholder or incomplete modules:
-- src/train_lstm.py currently appears to be a placeholder.
-- src/evaluate_lstm.py currently appears to be a placeholder.
-- src/predict_next_day.py currently appears to be a placeholder.
-- src/model_lstm.py currently appears to be a placeholder.
-- src/windowing.py currently appears to be a placeholder.
-
-Notes for the group before submission:
-- Do not report MAE, MSE, RMSE, loss, figures, or predictions until the real train/evaluate/predict modules are implemented and run.
-- Keep chronological train/validation/test splitting. Do not shuffle the time series.
-- Fit normalization parameters on the train split only.
-- After the model code is completed, rerun train, evaluate, predict_next_day, then update this log with the real command results.
-
-Cleanup run:
-- Removed Python cache folders/files: __pycache__/ and *.pyc.
-- Removed requirements-data.txt because it duplicated part of requirements.txt and was not referenced.
-- Kept processed data, scaler parameters, and data profile JSON files because they are existing preprocessing artifacts.
-- Kept placeholder LSTM modules for group confirmation because they match the expected project pipeline.
-
-Validation after cleanup:
-- python main.py self_test: succeeded. The command still reports missing pandas in the current environment and missing models/temp_lstm.keras, but exits successfully with readable notices.
-- python app_temperature_cli.py self_test: succeeded with the same readable notices.
-- python tests/test_temperature_end_to_end.py: succeeded.
-- Python cache folders generated by validation were removed again before finalizing cleanup.
+Kết quả validation trong môi trường hiện tại:
+- python main.py self_test: chạy thành công. Lệnh báo thiếu `pandas` khi import `src.data_utils` và `src.preprocess_timeseries`, đồng thời báo thiếu `models/temperature_lstm.keras`.
+- python app_temperature_cli.py self_test: chạy thành công với cùng cảnh báo thiếu dependency/model.
+- python tests/test_temperature_end_to_end.py: chạy thành công. Test build model được skip vì thiếu TensorFlow.
+- python main.py preprocess: chưa chạy được vì môi trường thiếu `pandas`.
+- python main.py train: chưa chạy được vì môi trường thiếu `pandas` và chưa thể chuẩn bị dữ liệu alias mới.
+- python main.py evaluate: chưa chạy được vì thiếu `models/temperature_lstm.keras`.
+- python main.py predict_next_day: chưa chạy được vì thiếu `models/temperature_lstm.keras`.
+- python main.py run_all: dừng ở bước preprocess vì thiếu `pandas`.

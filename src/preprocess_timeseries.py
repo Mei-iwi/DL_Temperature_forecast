@@ -14,13 +14,19 @@ try:
         DATA_RAW_PATH,
         DATE_COL,
         FULL_SCALED_PATH,
+        FIGURE_DIR,
+        LOG_DIR,
+        METRIC_DIR,
         RAW_PROFILE_PATH,
         SCALER_PARAMS_PATH,
         SPLIT_INFO_PATH,
         TEMP_COL,
+        TEST_CSV_PATH,
         TEST_SCALED_PATH,
+        TRAIN_CSV_PATH,
         TRAIN_RATIO,
         TRAIN_SCALED_PATH,
+        VAL_CSV_PATH,
         VAL_RATIO,
         VAL_SCALED_PATH,
     )
@@ -32,13 +38,19 @@ except ImportError:  # pragma: no cover - allows direct script execution
         DATA_RAW_PATH,
         DATE_COL,
         FULL_SCALED_PATH,
+        FIGURE_DIR,
+        LOG_DIR,
+        METRIC_DIR,
         RAW_PROFILE_PATH,
         SCALER_PARAMS_PATH,
         SPLIT_INFO_PATH,
         TEMP_COL,
+        TEST_CSV_PATH,
         TEST_SCALED_PATH,
+        TRAIN_CSV_PATH,
         TRAIN_RATIO,
         TRAIN_SCALED_PATH,
+        VAL_CSV_PATH,
         VAL_RATIO,
         VAL_SCALED_PATH,
     )
@@ -312,7 +324,13 @@ def preprocess_temperature_pipeline(
         # Lưu dữ liệu, split_info và scaler_params làm artifact thật của bước tiền xử lý.
         CLEAN_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
         SCALER_PARAMS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        FIGURE_DIR.mkdir(parents=True, exist_ok=True)
+        METRIC_DIR.mkdir(parents=True, exist_ok=True)
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
         clean_df.to_csv(CLEAN_DATA_PATH, index=False)
+        train_scaled.to_csv(TRAIN_CSV_PATH, index=False)
+        val_scaled.to_csv(VAL_CSV_PATH, index=False)
+        test_scaled.to_csv(TEST_CSV_PATH, index=False)
         train_scaled.to_csv(TRAIN_SCALED_PATH, index=False)
         val_scaled.to_csv(VAL_SCALED_PATH, index=False)
         test_scaled.to_csv(TEST_SCALED_PATH, index=False)
@@ -321,6 +339,15 @@ def preprocess_temperature_pipeline(
         save_json(scaler_params, SCALER_PARAMS_PATH)
         save_json(raw_profile, RAW_PROFILE_PATH)
         save_json(clean_profile, CLEAN_PROFILE_PATH)
+        try:
+            from .visualize_results import plot_temperature_series
+        except ImportError:  # pragma: no cover - hỗ trợ chạy trực tiếp file
+            from visualize_results import plot_temperature_series
+
+        try:
+            plot_temperature_series(clean_df)
+        except Exception as exc:
+            print(f"[NOTICE] Không thể vẽ temperature_series.png: {exc}")
 
     return {
         "raw_profile": raw_profile,

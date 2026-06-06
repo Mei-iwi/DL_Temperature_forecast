@@ -1,5 +1,18 @@
 # Architecture Source Dossier for ChatGPT Web
 
+## Update Notice
+
+This dossier was first created while several LSTM modules were placeholders. The project has since been completed with real implementations in:
+
+- `src/windowing.py`
+- `src/model_lstm.py`
+- `src/train_lstm.py`
+- `src/evaluate_lstm.py`
+- `src/predict_next_day.py`
+- `src/visualize_results.py`
+
+For the latest runnable instructions and expected outputs, use `README.md` as the primary source. Some lower sections in this dossier may still describe the earlier placeholder state and should be refreshed before using it as a final architecture report.
+
 ## 1. Project Overview
 
 **Project name:** `temperature_forecast`

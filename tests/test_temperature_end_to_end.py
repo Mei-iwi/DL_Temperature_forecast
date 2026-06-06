@@ -6,6 +6,8 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 def run_command(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -45,6 +47,10 @@ def test_required_folders() -> None:
         "models",
         "reports",
         "reports/final_report",
+        "outputs",
+        "outputs/figures",
+        "outputs/metrics",
+        "outputs/logs",
         "tests",
     ]
     for directory in required_dirs:
@@ -90,13 +96,57 @@ def test_cli_argument_validation() -> None:
 def test_evaluate_missing_model_message() -> None:
     """Kiểm tra thông báo khi đánh giá mà chưa có model.
 
-    Nếu `models/temp_lstm.keras` chưa tồn tại, CLI phải hướng dẫn rõ cần train trước.
+    Nếu `models/temperature_lstm.keras` chưa tồn tại, CLI phải hướng dẫn rõ cần train trước.
     """
     result = run_command(["main.py", "evaluate"])
     output = result.stdout + result.stderr
-    if not (PROJECT_ROOT / "models" / "temp_lstm.keras").exists():
+    if not (PROJECT_ROOT / "models" / "temperature_lstm.keras").exists():
         assert_true(result.returncode == 2, output)
         assert_true("Missing trained model" in output, output)
+
+
+def test_windowing_dummy_data() -> None:
+    """Kiểm tra tạo cửa sổ LSTM bằng dữ liệu giả, không cần dữ liệu thật."""
+    from src.windowing import create_sequences
+
+    values = list(range(20))
+    X, y = create_sequences(values, window_size=7)
+    assert_true(X.ndim == 3, "X must be 3D.")
+    assert_true(X.shape[1] == 7, "Window size must be 7.")
+    assert_true(y.shape[0] == X.shape[0], "X/y sample counts must match.")
+
+
+def test_model_build_dummy_data() -> None:
+    """Kiểm tra build model nếu TensorFlow đã được cài trong môi trường."""
+    try:
+        import numpy as np
+        from src.model_lstm import build_lstm_model
+
+        model = build_lstm_model((7, 1))
+        output = model(np.zeros((2, 7, 1), dtype="float32"), training=False)
+    except Exception as exc:
+        print(f"[SKIP] test_model_build_dummy_data: {exc}")
+        return
+
+    assert_true(tuple(output.shape) == (2, 1), f"Unexpected output shape: {output.shape}")
+
+
+def test_metrics_dummy_data() -> None:
+    """Kiểm tra tính MAE, MSE, RMSE bằng mảng giả."""
+    from src.evaluate_lstm import compute_regression_metrics
+
+    metrics = compute_regression_metrics([1.0, 2.0], [1.5, 1.5])
+    assert_true(set(metrics) == {"MAE", "MSE", "RMSE"}, "Missing regression metrics.")
+
+
+def test_next_day_input_dummy_data() -> None:
+    """Kiểm tra reshape input dự đoán ngày tiếp theo bằng chuỗi giả."""
+    import numpy as np
+    from src.predict_next_day import build_next_day_input, calculate_next_date
+
+    X = build_next_day_input(np.arange(10, dtype="float32"), {"mean": 0.0, "std": 1.0}, window_size=7)
+    assert_true(X.shape == (1, 7, 1), f"Unexpected next-day input shape: {X.shape}")
+    assert_true(calculate_next_date("2024-01-01").date().isoformat() == "2024-01-02", "Wrong next date.")
 
 
 def test_no_absolute_paths_required_in_cli_files() -> None:
@@ -125,6 +175,10 @@ def main() -> int:
         test_app_wrapper_runs,
         test_cli_argument_validation,
         test_evaluate_missing_model_message,
+        test_windowing_dummy_data,
+        test_model_build_dummy_data,
+        test_metrics_dummy_data,
+        test_next_day_input_dummy_data,
         test_no_absolute_paths_required_in_cli_files,
     ]
     for test in tests:

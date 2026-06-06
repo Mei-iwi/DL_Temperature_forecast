@@ -12,8 +12,11 @@ try:
         SCALER_PARAMS_PATH,
         SPLIT_INFO_PATH,
         TEMP_COL,
+        TEST_CSV_PATH,
         TEST_SCALED_PATH,
+        TRAIN_CSV_PATH,
         TRAIN_SCALED_PATH,
+        VAL_CSV_PATH,
         VAL_SCALED_PATH,
     )
     from .preprocess_timeseries import SCALED_TEMP_COL
@@ -24,8 +27,11 @@ except ImportError:  # pragma: no cover - allows direct script execution
         SCALER_PARAMS_PATH,
         SPLIT_INFO_PATH,
         TEMP_COL,
+        TEST_CSV_PATH,
         TEST_SCALED_PATH,
+        TRAIN_CSV_PATH,
         TRAIN_SCALED_PATH,
+        VAL_CSV_PATH,
         VAL_SCALED_PATH,
     )
     from preprocess_timeseries import SCALED_TEMP_COL
@@ -33,6 +39,9 @@ except ImportError:  # pragma: no cover - allows direct script execution
 
 REQUIRED_FILES = (
     CLEAN_DATA_PATH,
+    TRAIN_CSV_PATH,
+    VAL_CSV_PATH,
+    TEST_CSV_PATH,
     TRAIN_SCALED_PATH,
     VAL_SCALED_PATH,
     TEST_SCALED_PATH,
