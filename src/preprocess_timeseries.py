@@ -55,8 +55,13 @@ def clean_temperature_timeseries(
     freq: str = "D",
     fill_method: str = "interpolate",
 ) -> pd.DataFrame:
-    """Clean a daily temperature time series and fill missing days."""
+    """Làm sạch chuỗi nhiệt độ theo ngày.
+
+    Đầu vào là DataFrame có cột ngày và nhiệt độ.
+    Trả về DataFrame đã chuẩn hóa ngày, sắp xếp theo thời gian và điền giá trị thiếu.
+    """
     work = df[[date_col, temp_col]].copy()
+    # Chuẩn hóa ngày tháng và ép nhiệt độ về kiểu số để xử lý ổn định.
     work[date_col] = pd.to_datetime(work[date_col], errors="coerce")
     work[temp_col] = pd.to_numeric(work[temp_col], errors="coerce")
     work.loc[work[temp_col] == -999, temp_col] = pd.NA
@@ -66,6 +71,7 @@ def clean_temperature_timeseries(
         raise ValueError("No valid dates remain after cleaning.")
 
     work[date_col] = work[date_col].dt.normalize()
+    # Gom các bản ghi trùng ngày rồi sắp xếp chuỗi thời gian tăng dần.
     work = (
         work.groupby(date_col, as_index=False)[temp_col]
         .mean()
@@ -74,6 +80,7 @@ def clean_temperature_timeseries(
     )
 
     if freq:
+        # Bổ sung các ngày bị thiếu để chuỗi có tần suất đều theo ngày.
         full_index = pd.date_range(work[date_col].min(), work[date_col].max(), freq=freq)
         work = (
             work.set_index(date_col)
@@ -86,6 +93,7 @@ def clean_temperature_timeseries(
         raise ValueError("No valid numeric temperatures remain after cleaning.")
 
     if fill_method == "interpolate":
+        # Nội suy tuyến tính giúp lấp khoảng trống mà không dùng dữ liệu tương lai ngoài chuỗi.
         work[temp_col] = work[temp_col].interpolate(method="linear", limit_direction="both")
     elif fill_method == "ffill":
         work[temp_col] = work[temp_col].ffill().bfill()
@@ -108,7 +116,11 @@ def split_by_time(
     train_ratio: float = TRAIN_RATIO,
     val_ratio: float = VAL_RATIO,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split a time series in chronological order without shuffling."""
+    """Chia dữ liệu thành train/validation/test theo thứ tự thời gian.
+
+    Đầu vào là DataFrame chuỗi thời gian đã làm sạch và tỷ lệ chia tập.
+    Trả về ba DataFrame theo thứ tự train, validation, test; tuyệt đối không shuffle.
+    """
     if not 0 < train_ratio < 1:
         raise ValueError("train_ratio must be between 0 and 1.")
     if not 0 <= val_ratio < 1:
@@ -116,6 +128,7 @@ def split_by_time(
     if train_ratio + val_ratio >= 1:
         raise ValueError("train_ratio + val_ratio must be smaller than 1.")
 
+    # Sắp xếp theo ngày trước khi cắt tập để tránh rò rỉ dữ liệu tương lai.
     work = df.sort_values(DATE_COL).reset_index(drop=True)
     row_count = len(work)
     train_end = int(row_count * train_ratio)
@@ -131,6 +144,11 @@ def split_by_time(
 
 
 def _date_range_info(df: pd.DataFrame, date_col: str = DATE_COL) -> dict[str, Any]:
+    """Tạo thông tin số dòng và khoảng ngày của một tập dữ liệu.
+
+    Đầu vào là DataFrame của một split.
+    Trả về dict dùng để ghi vào `split_info.json`.
+    """
     if df.empty:
         return {"rows": 0, "start_date": None, "end_date": None}
     dates = pd.to_datetime(df[date_col], errors="coerce")
@@ -148,6 +166,11 @@ def build_split_info(
     train_ratio: float = TRAIN_RATIO,
     val_ratio: float = VAL_RATIO,
 ) -> dict[str, Any]:
+    """Tạo metadata mô tả cách chia train/validation/test.
+
+    Đầu vào là ba DataFrame đã chia theo thời gian và tỷ lệ chia tập.
+    Trả về dict có `split_rule` để chứng minh không shuffle chuỗi thời gian.
+    """
     return {
         "train_ratio": float(train_ratio),
         "val_ratio": float(val_ratio),
@@ -163,7 +186,12 @@ def fit_temperature_scaler(
     train_df: pd.DataFrame,
     temp_col: str = TEMP_COL,
 ) -> dict[str, Any]:
-    """Fit standardization parameters on train only."""
+    """Tính tham số chuẩn hóa chỉ trên tập train.
+
+    Đầu vào là DataFrame train và tên cột nhiệt độ.
+    Trả về dict gồm phương pháp, mean và std để lưu vào `scaler_params.json`.
+    """
+    # Chỉ fit scaler trên train để tránh rò rỉ dữ liệu validation/test.
     temperatures = pd.to_numeric(train_df[temp_col], errors="coerce").dropna()
     if temperatures.empty:
         raise ValueError("Cannot fit scaler because train temperature data is empty.")
@@ -182,7 +210,11 @@ def transform_temperature(
     temp_col: str = TEMP_COL,
     output_col: str = SCALED_TEMP_COL,
 ) -> pd.DataFrame:
-    """Apply train-fitted standardization to a dataframe."""
+    """Áp dụng chuẩn hóa bằng tham số đã fit từ tập train.
+
+    Đầu vào là DataFrame cần chuẩn hóa và `scaler_params`.
+    Trả về bản sao DataFrame có thêm cột `temperature_scaled`.
+    """
     mean = float(scaler_params["mean"])
     std = float(scaler_params["std"])
     work = df.copy()
@@ -194,7 +226,11 @@ def inverse_transform_temperature(
     values: Any,
     scaler_params: dict[str, Any],
 ) -> Any:
-    """Convert standardized temperatures back to original units."""
+    """Đảo chuẩn hóa nhiệt độ về đơn vị ban đầu.
+
+    Đầu vào là giá trị đã chuẩn hóa và `scaler_params`.
+    Trả về giá trị nhiệt độ gốc, dùng cho kết quả dự đoán hoặc đánh giá.
+    """
     mean = float(scaler_params["mean"])
     std = float(scaler_params["std"])
     try:
@@ -209,6 +245,11 @@ def scale_time_splits(
     test_df: pd.DataFrame,
     temp_col: str = TEMP_COL,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
+    """Chuẩn hóa các tập train/validation/test.
+
+    Hàm fit scaler trên train, sau đó áp dụng cùng mean/std cho validation và test.
+    Trả về ba DataFrame đã chuẩn hóa và dict tham số scaler.
+    """
     scaler_params = fit_temperature_scaler(train_df, temp_col=temp_col)
     train_scaled = transform_temperature(train_df, scaler_params, temp_col=temp_col)
     val_scaled = transform_temperature(val_df, scaler_params, temp_col=temp_col)
@@ -217,12 +258,22 @@ def scale_time_splits(
 
 
 def save_json(data: dict[str, Any], output_path: str | Path) -> None:
+    """Lưu dict ra file JSON UTF-8.
+
+    Đầu vào là dict cần lưu và đường dẫn output.
+    Hàm tạo thư mục cha nếu cần, thường dùng cho split_info và scaler_params.
+    """
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def load_scaler_params(input_path: str | Path = SCALER_PARAMS_PATH) -> dict[str, Any]:
+    """Đọc tham số chuẩn hóa từ `scaler_params.json`.
+
+    Đầu vào là đường dẫn file JSON tham số scaler.
+    Trả về dict chứa mean/std để chuẩn hóa hoặc đảo chuẩn hóa.
+    """
     return json.loads(Path(input_path).read_text(encoding="utf-8"))
 
 
@@ -232,15 +283,22 @@ def preprocess_temperature_pipeline(
     train_ratio: float = TRAIN_RATIO,
     val_ratio: float = VAL_RATIO,
 ) -> dict[str, Any]:
-    """Run the data-cleaning and normalization pipeline for temperature forecasting."""
+    """Chạy toàn bộ bước tiền xử lý dữ liệu nhiệt độ.
+
+    Đầu vào là CSV gốc, tùy chọn lưu output và tỷ lệ chia tập.
+    Trả về dict chứa profile, dữ liệu sạch, các split và scaler_params.
+    """
+    # Đọc dữ liệu CSV và tạo profile ban đầu để phục vụ báo cáo.
     raw_df = load_temperature_data(csv_path)
     raw_profile = profile_temperature_data(raw_df)
+    # Làm sạch chuỗi thời gian rồi chia train/validation/test theo thứ tự thời gian.
     clean_df = clean_temperature_timeseries(raw_df)
     clean_profile = profile_temperature_data(clean_df)
     train_df, val_df, test_df = split_by_time(clean_df, train_ratio=train_ratio, val_ratio=val_ratio)
     train_scaled, val_scaled, test_scaled, scaler_params = scale_time_splits(train_df, val_df, test_df)
     split_info = build_split_info(train_scaled, val_scaled, test_scaled, train_ratio=train_ratio, val_ratio=val_ratio)
 
+    # Gộp lại để tiện kiểm tra nhưng vẫn giữ nhãn split rõ ràng.
     full_scaled = pd.concat(
         [
             train_scaled.assign(split="train"),
@@ -251,6 +309,7 @@ def preprocess_temperature_pipeline(
     )
 
     if save_outputs:
+        # Lưu dữ liệu, split_info và scaler_params làm artifact thật của bước tiền xử lý.
         CLEAN_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
         SCALER_PARAMS_PATH.parent.mkdir(parents=True, exist_ok=True)
         clean_df.to_csv(CLEAN_DATA_PATH, index=False)
@@ -277,6 +336,11 @@ def preprocess_temperature_pipeline(
 
 
 def main() -> None:
+    """Điểm vào khi chạy trực tiếp file tiền xử lý.
+
+    Hàm gọi `preprocess_temperature_pipeline()` và in các output chính đã lưu.
+    Không dùng để tạo metric huấn luyện hay đánh giá.
+    """
     result = preprocess_temperature_pipeline()
     print("[OK] preprocess_timeseries")
     print("clean rows:", result["clean_profile"]["rows"])
