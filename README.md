@@ -57,7 +57,7 @@ temperature_forecast/
     predict_next_day.py
     visualize_results.py
   models/
-    temperature_lstm.keras
+    temp_lstm.keras
     scaler_params.json
   outputs/
     figures/
@@ -207,10 +207,10 @@ Sau khi chạy thật, project tạo các output chính:
 | Tập test | `data/processed/test_series.csv` |
 | Thông tin chia tập | `data/processed/split_info.json` |
 | Tham số chuẩn hóa | `models/scaler_params.json` |
-| Model LSTM | `models/temperature_lstm.keras` |
-| Lịch sử huấn luyện | `outputs/logs/history.csv` |
+| Model LSTM | `models/temp_lstm.keras` |
+| Lịch sử huấn luyện | `reports/02_training/lstm_history.csv` |
 | Biểu đồ chuỗi nhiệt độ | `outputs/figures/temperature_series.png` |
-| Biểu đồ loss/MAE | `outputs/figures/training_loss_mae.png` |
+| Biểu đồ loss/MAE | `reports/02_training/lstm_loss_curve.png` |
 | Biểu đồ thực tế/dự đoán | `outputs/figures/actual_vs_predicted.png` |
 | Biểu đồ residual | `outputs/figures/residual_plot.png` |
 | Chỉ số đánh giá | `outputs/metrics/regression_metrics.csv` |
@@ -245,7 +245,7 @@ Chỉ đưa các chỉ số này vào báo cáo sau khi chạy `python main.py e
 - [ ] `python main.py preprocess` chạy được.
 - [ ] Windowing tạo đúng shape `(samples, WINDOW_SIZE, 1)`.
 - [ ] Model LSTM build được.
-- [ ] Train tạo `models/temperature_lstm.keras`.
+- [ ] Train tạo `models/temp_lstm.keras`.
 - [ ] Evaluate tạo MAE, MSE, RMSE thật.
 - [ ] Predict tạo kết quả ngày tiếp theo.
 - [ ] README có hướng dẫn cài đặt, chạy test và chạy project.

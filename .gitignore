@@ -13,4 +13,8 @@ data/raw/*
 data/processed/*
 !data/processed/.gitkeep
 reports/01_data_profile/*.json
-reports/02_training/window_config.json
+reports/02_training/*.csv
+reports/02_training/*.json
+reports/02_training/*.png
+reports/02_training/*.txt
+!reports/02_training/.gitkeep

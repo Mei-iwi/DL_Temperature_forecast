@@ -96,11 +96,13 @@ def test_cli_argument_validation() -> None:
 def test_evaluate_missing_model_message() -> None:
     """Kiểm tra thông báo khi đánh giá mà chưa có model.
 
-    Nếu `models/temperature_lstm.keras` chưa tồn tại, CLI phải hướng dẫn rõ cần train trước.
+    Nếu model LSTM chưa tồn tại, CLI phải hướng dẫn rõ cần train trước.
     """
+    from src import config
+
     result = run_command(["main.py", "evaluate"])
     output = result.stdout + result.stderr
-    if not (PROJECT_ROOT / "models" / "temperature_lstm.keras").exists():
+    if not config.MODEL_PATH.exists():
         assert_true(result.returncode == 2, output)
         assert_true("Missing trained model" in output, output)
 

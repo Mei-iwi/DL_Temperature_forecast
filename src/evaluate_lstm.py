@@ -111,7 +111,7 @@ def evaluate_lstm() -> dict[str, float]:
     plot_actual_vs_predicted(pred_df)
     plot_residuals(pred_df, RESIDUAL_PLOT_PATH)
 
-    print("[OK] Đã đánh giá LSTM")
+    print("[OK] evaluated LSTM")
     print(metrics_df.to_string(index=False))
     return metrics
 

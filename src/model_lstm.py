@@ -2,59 +2,65 @@ from __future__ import annotations
 
 try:
     from .config import LEARNING_RATE, LSTM_UNITS
-except ImportError:  # pragma: no cover - hỗ trợ chạy trực tiếp file
+    from .windowing import create_sequences
+except ImportError:  # pragma: no cover - supports direct script execution
     from config import LEARNING_RATE, LSTM_UNITS
+    from windowing import create_sequences
 
 
-def build_lstm_model(
-    input_shape: tuple[int, int],
-    units: int = LSTM_UNITS,
-    learning_rate: float = LEARNING_RATE,
-):
-    """Xây dựng mô hình LSTM đơn giản cho bài toán hồi quy nhiệt độ.
+def build_lstm_model(input_shape: tuple[int, int], units: int = LSTM_UNITS):
+    """Build a small LSTM regression model for next-day temperature.
 
-    `input_shape` thường là `(WINDOW_SIZE, 1)`: số ngày trong cửa sổ và 1 đặc trưng nhiệt độ.
-    Hàm trả về model TensorFlow/Keras đã compile với loss MSE và metric MAE.
+    input_shape is usually (WINDOW_SIZE, 1). The final Dense(1) layer predicts
+    one scaled temperature value for the next day.
     """
     from tensorflow.keras import Sequential
     from tensorflow.keras.layers import LSTM, Dense, Dropout, Input
-    from tensorflow.keras.optimizers import Adam
 
-    model = Sequential(
+    return Sequential(
         [
             Input(shape=input_shape),
-            # LSTM học quan hệ theo thời gian trong chuỗi nhiệt độ.
             LSTM(units),
             Dropout(0.2),
-            Dense(32, activation="relu"),
-            # Dense(1) xuất ra một giá trị nhiệt độ dự đoán.
+            Dense(16, activation="relu"),
             Dense(1),
         ]
     )
-    # MSE phù hợp để tối ưu hồi quy, MAE dễ diễn giải sai số trung bình.
-    model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse", metrics=["mae"])
+
+
+def compile_lstm_model(model, learning_rate: float = LEARNING_RATE):
+    """Compile the LSTM model for a regression task."""
+    from tensorflow.keras.optimizers import Adam
+
+    model.compile(
+        optimizer=Adam(learning_rate=learning_rate),
+        loss="mse",
+        metrics=["mae"],
+    )
     return model
 
 
-def main_test_lstm_model() -> None:
-    """Kiểm tra nhanh việc build model LSTM bằng dữ liệu giả.
-
-    Hàm không huấn luyện model; chỉ kiểm tra output shape nếu TensorFlow đã được cài.
-    """
+def main_test_temperature_lstm_build() -> None:
+    """Smoke test for sequence creation and LSTM output shape."""
     import numpy as np
 
-    model = build_lstm_model(input_shape=(7, 1))
-    dummy = np.zeros((2, 7, 1), dtype=np.float32)
-    output = model(dummy, training=False)
+    values = np.arange(20, dtype=np.float32)
+    X, y = create_sequences(values, window_size=7)
+    assert X.shape == (13, 7, 1)
+    assert y.shape == (13,)
+
+    model = build_lstm_model(input_shape=(7, 1), units=8)
+    compile_lstm_model(model)
+    output = model(np.zeros((2, 7, 1), dtype=np.float32), training=False)
     assert tuple(output.shape) == (2, 1)
     model.summary()
-    print("[OK] model_lstm output shape:", tuple(output.shape))
+    print("[OK] model_lstm", "X shape:", X.shape, "y shape:", y.shape, "output shape:", tuple(output.shape))
 
 
-def main_test_temperature_lstm_build() -> None:
-    """Alias kiểm tra cũ để tương thích với self_test."""
-    main_test_lstm_model()
+def main_test_lstm_model() -> None:
+    """Backward-compatible alias used by older self-tests."""
+    main_test_temperature_lstm_build()
 
 
 if __name__ == "__main__":
-    main_test_lstm_model()
+    main_test_temperature_lstm_build()
