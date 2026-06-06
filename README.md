@@ -75,9 +75,18 @@ Chuỗi thời gian phải được xử lý theo thứ tự thời gian. Không
 
 ## Tạo môi trường ảo
 
+Trên Windows PowerShell hoặc Command Prompt:
+
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
+```
+
+Nếu đang dùng Git Bash/MINGW64 trên Windows, dùng đường dẫn `Scripts`:
+
+```bash
+py -m venv .venv
+source .venv/Scripts/activate
 ```
 
 Trên macOS/Linux:
@@ -86,6 +95,8 @@ Trên macOS/Linux:
 python -m venv .venv
 source .venv/bin/activate
 ```
+
+Lưu ý: trong Git Bash trên Windows, lệnh `source .venv/bin/activate` thường báo lỗi `No such file or directory` vì môi trường ảo Windows tạo file kích hoạt trong `.venv/Scripts/activate`.
 
 ## Cài thư viện
 
